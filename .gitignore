@@ -1,0 +1,10 @@
+.env
+*.env
+config.yaml
+*.log
+*.sqlite
+*.db
+credentials/
+secrets/
+*.pem
+*.key

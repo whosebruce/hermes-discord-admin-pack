@@ -1,0 +1,500 @@
+diff --git a/tests/tools/test_discord_tool.py b/tests/tools/test_discord_tool.py
+index 19a31d104..b49a84a62 100644
+--- a/tests/tools/test_discord_tool.py
++++ b/tests/tools/test_discord_tool.py
+@@ -181,6 +181,12 @@ class TestDiscordServerValidation:
+         assert "error" in result
+         assert "message_id" in result["error"]
+ 
++    def test_missing_required_channel_id_for_delete_channel(self, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        result = json.loads(discord_admin_handler(action="delete_channel"))
++        assert "error" in result
++        assert "channel_id" in result["error"]
++
+     def test_missing_multiple_params(self, monkeypatch):
+         monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
+         result = json.loads(discord_admin_handler(action="add_role"))
+@@ -442,6 +448,112 @@ class TestPinUnpinDelete:
+         assert "deleted" in result["message"]
+         mock_req.assert_called_once_with("DELETE", "/channels/11/messages/500", "test-token")
+ 
++    @patch("tools.discord_tool._discord_request")
++    def test_delete_channel(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = None
++        result = json.loads(discord_admin_handler(action="delete_channel", channel_id="11"))
++        assert result["success"] is True
++        assert "deleted" in result["message"]
++        mock_req.assert_called_once_with("DELETE", "/channels/11", "test-token")
++
++
++# ---------------------------------------------------------------------------
++# Actions: create/edit/move channel + permission overwrites
++# ---------------------------------------------------------------------------
++
++class TestChannelManagement:
++    @patch("tools.discord_tool._discord_request")
++    def test_create_text_channel(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = {"id": "21", "name": "project-chat", "type": 0, "parent_id": "10"}
++        result = json.loads(discord_admin_handler(
++            action="create_channel", guild_id="111", name="project-chat",
++            channel_type="text", parent_id="10", topic="Work here", position=3, nsfw=False,
++        ))
++        assert result["success"] is True
++        assert result["channel_id"] == "21"
++        assert result["type"] == "text"
++        mock_req.assert_called_once_with(
++            "POST", "/guilds/111/channels", "test-token",
++            body={
++                "name": "project-chat", "type": 0, "parent_id": "10",
++                "topic": "Work here", "position": 3, "nsfw": False,
++            },
++        )
++
++    @patch("tools.discord_tool._discord_request")
++    def test_create_voice_channel(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = {"id": "22", "name": "war-room", "type": 2, "parent_id": "10"}
++        result = json.loads(discord_admin_handler(
++            action="create_channel", guild_id="111", name="war-room", channel_type="voice",
++            parent_id="10", bitrate="64000", user_limit="5",
++        ))
++        assert result["success"] is True
++        assert result["type"] == "voice"
++        mock_req.assert_called_once_with(
++            "POST", "/guilds/111/channels", "test-token",
++            body={"name": "war-room", "type": 2, "parent_id": "10", "bitrate": 64000, "user_limit": 5},
++        )
++
++    @patch("tools.discord_tool._discord_request")
++    def test_edit_channel(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = {"id": "21", "name": "renamed", "type": 0, "parent_id": "10"}
++        result = json.loads(discord_admin_handler(
++            action="edit_channel", channel_id="21", name="renamed", topic="Updated", rate_limit_per_user="10",
++        ))
++        assert result["success"] is True
++        mock_req.assert_called_once_with(
++            "PATCH", "/channels/21", "test-token",
++            body={"name": "renamed", "topic": "Updated", "rate_limit_per_user": 10},
++        )
++
++    def test_edit_channel_requires_field(self, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        result = json.loads(discord_admin_handler(action="edit_channel", channel_id="21"))
++        assert "error" in result
++        assert "at least one" in result["error"]
++
++    @patch("tools.discord_tool._discord_request")
++    def test_move_channel(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = None
++        result = json.loads(discord_admin_handler(
++            action="move_channel", guild_id="111", channel_id="21", position="4",
++            parent_id="10", lock_permissions=True,
++        ))
++        assert result["success"] is True
++        mock_req.assert_called_once_with(
++            "PATCH", "/guilds/111/channels", "test-token",
++            body=[{"id": "21", "position": 4, "parent_id": "10", "lock_permissions": True}],
++        )
++
++    @patch("tools.discord_tool._discord_request")
++    def test_set_channel_permission(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = None
++        result = json.loads(discord_admin_handler(
++            action="set_channel_permission", channel_id="21", overwrite_id="role-1",
++            overwrite_type="role", allow="1024", deny="0",
++        ))
++        assert result["success"] is True
++        mock_req.assert_called_once_with(
++            "PUT", "/channels/21/permissions/role-1", "test-token",
++            body={"type": 0, "allow": "1024", "deny": "0"},
++        )
++
++    @patch("tools.discord_tool._discord_request")
++    def test_delete_channel_permission(self, mock_req, monkeypatch):
++        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
++        mock_req.return_value = None
++        result = json.loads(discord_admin_handler(
++            action="delete_channel_permission", channel_id="21", overwrite_id="role-1",
++        ))
++        assert result["success"] is True
++        mock_req.assert_called_once_with("DELETE", "/channels/21/permissions/role-1", "test-token")
++
+ 
+ # ---------------------------------------------------------------------------
+ # Action: create_thread
+diff --git a/tools/discord_tool.py b/tools/discord_tool.py
+index 1da43ac91..3b2aca95f 100644
+--- a/tools/discord_tool.py
++++ b/tools/discord_tool.py
+@@ -121,12 +121,72 @@ _CHANNEL_TYPE_NAMES = {
+     15: "forum",
+     16: "media",
+ }
++_CHANNEL_TYPE_IDS = {v: k for k, v in _CHANNEL_TYPE_NAMES.items()}
++_CHANNEL_TYPE_IDS.update({
++    "news": 5,
++    "announcements": 5,
++    "public": 11,
++    "private": 12,
++})
++_OVERWRITE_TYPE_IDS = {"role": 0, "member": 1}
+ 
+ 
+ def _channel_type_name(type_id: int) -> str:
+     return _CHANNEL_TYPE_NAMES.get(type_id, f"unknown({type_id})")
+ 
+ 
++def _coerce_channel_type(channel_type: Any) -> int:
++    """Return Discord channel type ID from a name or integer-like value."""
++    if channel_type is None or channel_type == "":
++        return 0
++    if isinstance(channel_type, int):
++        return channel_type
++    text = str(channel_type).strip().lower()
++    if text.isdigit():
++        return int(text)
++    if text not in _CHANNEL_TYPE_IDS:
++        known = ", ".join(sorted(k for k in _CHANNEL_TYPE_IDS if not k.isdigit()))
++        raise ValueError(f"Unknown channel_type '{channel_type}'. Known: {known}")
++    return _CHANNEL_TYPE_IDS[text]
++
++
++def _coerce_overwrite_type(overwrite_type: Any) -> int:
++    """Return Discord permission overwrite type ID from role/member or int."""
++    if isinstance(overwrite_type, int):
++        return overwrite_type
++    text = str(overwrite_type).strip().lower()
++    if text.isdigit():
++        return int(text)
++    if text not in _OVERWRITE_TYPE_IDS:
++        raise ValueError("overwrite_type must be 'role' or 'member'")
++    return _OVERWRITE_TYPE_IDS[text]
++
++
++def _optional_bool(value: Any) -> Optional[bool]:
++    if value is None or value == "":
++        return None
++    if isinstance(value, bool):
++        return value
++    text = str(value).strip().lower()
++    if text in {"1", "true", "yes", "y", "on"}:
++        return True
++    if text in {"0", "false", "no", "n", "off"}:
++        return False
++    raise ValueError(f"Expected boolean value, got {value!r}")
++
++
++def _optional_int(value: Any) -> Optional[int]:
++    if value is None or value == "":
++        return None
++    return int(value)
++
++
++def _put_if_present(body: Dict[str, Any], key: str, value: Any, *, coerce: Any = None) -> None:
++    if value is None or value == "":
++        return
++    body[key] = coerce(value) if coerce else value
++
++
+ # ---------------------------------------------------------------------------
+ # Capability detection (application intents)
+ # ---------------------------------------------------------------------------
+@@ -424,6 +484,105 @@ def _delete_message(token: str, channel_id: str, message_id: str, **_kwargs: Any
+     return json.dumps({"success": True, "message": f"Message {message_id} deleted."})
+ 
+ 
++def _create_channel(
++    token: str, guild_id: str, name: str, channel_type: str = "text",
++    parent_id: Optional[str] = None, topic: Optional[str] = None,
++    position: Optional[int] = None, nsfw: Optional[bool] = None,
++    rate_limit_per_user: Optional[int] = None, bitrate: Optional[int] = None,
++    user_limit: Optional[int] = None, **_kwargs: Any,
++) -> str:
++    """Create a Discord text/voice/category/announcement/forum/stage channel."""
++    type_id = _coerce_channel_type(channel_type)
++    body: Dict[str, Any] = {"name": name, "type": type_id}
++    _put_if_present(body, "parent_id", parent_id)
++    _put_if_present(body, "topic", topic)
++    _put_if_present(body, "position", position, coerce=_optional_int)
++    _put_if_present(body, "nsfw", nsfw, coerce=_optional_bool)
++    _put_if_present(body, "rate_limit_per_user", rate_limit_per_user, coerce=_optional_int)
++    _put_if_present(body, "bitrate", bitrate, coerce=_optional_int)
++    _put_if_present(body, "user_limit", user_limit, coerce=_optional_int)
++
++    ch = _discord_request("POST", f"/guilds/{guild_id}/channels", token, body=body)
++    return json.dumps({
++        "success": True,
++        "channel_id": ch.get("id"),
++        "name": ch.get("name"),
++        "type": _channel_type_name(ch.get("type", type_id)),
++        "parent_id": ch.get("parent_id"),
++    })
++
++
++def _edit_channel(
++    token: str, channel_id: str, name: Optional[str] = None,
++    parent_id: Optional[str] = None, topic: Optional[str] = None,
++    position: Optional[int] = None, nsfw: Optional[bool] = None,
++    rate_limit_per_user: Optional[int] = None, bitrate: Optional[int] = None,
++    user_limit: Optional[int] = None, lock_permissions: Optional[bool] = None,
++    **_kwargs: Any,
++) -> str:
++    """Edit a Discord channel's common properties."""
++    body: Dict[str, Any] = {}
++    _put_if_present(body, "name", name)
++    _put_if_present(body, "parent_id", parent_id)
++    _put_if_present(body, "topic", topic)
++    _put_if_present(body, "position", position, coerce=_optional_int)
++    _put_if_present(body, "nsfw", nsfw, coerce=_optional_bool)
++    _put_if_present(body, "rate_limit_per_user", rate_limit_per_user, coerce=_optional_int)
++    _put_if_present(body, "bitrate", bitrate, coerce=_optional_int)
++    _put_if_present(body, "user_limit", user_limit, coerce=_optional_int)
++    _put_if_present(body, "lock_permissions", lock_permissions, coerce=_optional_bool)
++    if not body:
++        return json.dumps({"error": "edit_channel requires at least one editable field."})
++
++    ch = _discord_request("PATCH", f"/channels/{channel_id}", token, body=body)
++    return json.dumps({
++        "success": True,
++        "channel_id": ch.get("id"),
++        "name": ch.get("name"),
++        "type": _channel_type_name(ch.get("type", -1)),
++        "parent_id": ch.get("parent_id"),
++    })
++
++
++def _move_channel(
++    token: str, guild_id: str, channel_id: str, position: int,
++    parent_id: Optional[str] = None, lock_permissions: Optional[bool] = None,
++    **_kwargs: Any,
++) -> str:
++    """Move/reorder a Discord channel in a guild."""
++    entry: Dict[str, Any] = {"id": channel_id, "position": int(position)}
++    _put_if_present(entry, "parent_id", parent_id)
++    _put_if_present(entry, "lock_permissions", lock_permissions, coerce=_optional_bool)
++    _discord_request("PATCH", f"/guilds/{guild_id}/channels", token, body=[entry])
++    return json.dumps({"success": True, "message": f"Channel {channel_id} moved."})
++
++
++def _set_channel_permission(
++    token: str, channel_id: str, overwrite_id: str, overwrite_type: str,
++    allow: str = "0", deny: str = "0", **_kwargs: Any,
++) -> str:
++    """Create/update a channel permission overwrite for a role or member."""
++    body = {
++        "type": _coerce_overwrite_type(overwrite_type),
++        "allow": str(allow or "0"),
++        "deny": str(deny or "0"),
++    }
++    _discord_request("PUT", f"/channels/{channel_id}/permissions/{overwrite_id}", token, body=body)
++    return json.dumps({"success": True, "message": f"Permission overwrite {overwrite_id} updated."})
++
++
++def _delete_channel_permission(token: str, channel_id: str, overwrite_id: str, **_kwargs: Any) -> str:
++    """Delete a channel permission overwrite."""
++    _discord_request("DELETE", f"/channels/{channel_id}/permissions/{overwrite_id}", token)
++    return json.dumps({"success": True, "message": f"Permission overwrite {overwrite_id} deleted."})
++
++
++def _delete_channel(token: str, channel_id: str, **_kwargs: Any) -> str:
++    """Delete a Discord channel or thread."""
++    _discord_request("DELETE", f"/channels/{channel_id}", token)
++    return json.dumps({"success": True, "message": f"Channel {channel_id} deleted."})
++
++
+ def _create_thread(
+     token: str, channel_id: str, name: str,
+     message_id: Optional[str] = None,
+@@ -483,6 +642,12 @@ _ACTIONS = {
+     "pin_message": _pin_message,
+     "unpin_message": _unpin_message,
+     "delete_message": _delete_message,
++    "create_channel": _create_channel,
++    "edit_channel": _edit_channel,
++    "move_channel": _move_channel,
++    "set_channel_permission": _set_channel_permission,
++    "delete_channel_permission": _delete_channel_permission,
++    "delete_channel": _delete_channel,
+     "create_thread": _create_thread,
+     "add_role": _add_role,
+     "remove_role": _remove_role,
+@@ -510,6 +675,12 @@ _ACTION_MANIFEST: List[Tuple[str, str, str]] = [
+     ("pin_message", "(channel_id, message_id)", "pin a message"),
+     ("unpin_message", "(channel_id, message_id)", "unpin a message"),
+     ("delete_message", "(channel_id, message_id)", "delete a message"),
++    ("create_channel", "(guild_id, name, channel_type)", "create text/voice/category/announcement/forum/stage channels"),
++    ("edit_channel", "(channel_id, fields...)", "rename/edit topic/category/voice limits/common channel fields"),
++    ("move_channel", "(guild_id, channel_id, position)", "reorder or move a channel; optional parent_id"),
++    ("set_channel_permission", "(channel_id, overwrite_id, overwrite_type, allow, deny)", "create/update role/member channel permission overwrite"),
++    ("delete_channel_permission", "(channel_id, overwrite_id)", "delete channel permission overwrite"),
++    ("delete_channel", "(channel_id)", "delete a channel or thread"),
+     ("create_thread", "(channel_id, name)", "create a public thread; optional message_id anchor"),
+     ("add_role", "(guild_id, user_id, role_id)", "assign a role"),
+     ("remove_role", "(guild_id, user_id, role_id)", "remove a role"),
+@@ -531,6 +702,12 @@ _REQUIRED_PARAMS: Dict[str, List[str]] = {
+     "pin_message": ["channel_id", "message_id"],
+     "unpin_message": ["channel_id", "message_id"],
+     "delete_message": ["channel_id", "message_id"],
++    "create_channel": ["guild_id", "name"],
++    "edit_channel": ["channel_id"],
++    "move_channel": ["guild_id", "channel_id", "position"],
++    "set_channel_permission": ["channel_id", "overwrite_id", "overwrite_type"],
++    "delete_channel_permission": ["channel_id", "overwrite_id"],
++    "delete_channel": ["channel_id"],
+     "create_thread": ["channel_id", "name"],
+     "add_role": ["guild_id", "user_id", "role_id"],
+     "remove_role": ["guild_id", "user_id", "role_id"],
+@@ -691,7 +868,60 @@ def _build_schema(
+         },
+         "name": {
+             "type": "string",
+-            "description": "New thread name (create_thread).",
++            "description": "Name for create_thread/create_channel or new name for edit_channel.",
++        },
++        "channel_type": {
++            "type": "string",
++            "description": "Channel type for create_channel: text, voice, category, announcement, forum, stage, media, or a Discord type integer.",
++        },
++        "parent_id": {
++            "type": "string",
++            "description": "Category ID for create_channel/edit_channel/move_channel.",
++        },
++        "topic": {
++            "type": "string",
++            "description": "Text/announcement/forum channel topic.",
++        },
++        "position": {
++            "type": "integer",
++            "description": "Channel position for create_channel/edit_channel/move_channel.",
++        },
++        "nsfw": {
++            "type": "boolean",
++            "description": "Whether the channel is marked NSFW.",
++        },
++        "rate_limit_per_user": {
++            "type": "integer",
++            "description": "Slowmode seconds for text-like channels.",
++        },
++        "bitrate": {
++            "type": "integer",
++            "description": "Voice channel bitrate in bits per second.",
++        },
++        "user_limit": {
++            "type": "integer",
++            "description": "Voice channel user limit.",
++        },
++        "lock_permissions": {
++            "type": "boolean",
++            "description": "Sync permissions with parent category when moving/editing a channel.",
++        },
++        "overwrite_id": {
++            "type": "string",
++            "description": "Role ID or user ID for a channel permission overwrite.",
++        },
++        "overwrite_type": {
++            "type": "string",
++            "enum": ["role", "member", "0", "1"],
++            "description": "Permission overwrite target type: role/member.",
++        },
++        "allow": {
++            "type": "string",
++            "description": "Discord permission bitset to allow for set_channel_permission.",
++        },
++        "deny": {
++            "type": "string",
++            "description": "Discord permission bitset to deny for set_channel_permission.",
+         },
+         "limit": {
+             "type": "integer",
+@@ -770,6 +1000,24 @@ _ACTION_403_HINT = {
+     "delete_message": (
+         "Bot lacks MANAGE_MESSAGES permission in this channel, or cannot view the channel/message."
+     ),
++    "create_channel": (
++        "Bot lacks MANAGE_CHANNELS permission in this guild, or the target category is not visible."
++    ),
++    "edit_channel": (
++        "Bot lacks MANAGE_CHANNELS permission for this channel or guild."
++    ),
++    "move_channel": (
++        "Bot lacks MANAGE_CHANNELS permission for this guild/channel."
++    ),
++    "set_channel_permission": (
++        "Bot lacks MANAGE_ROLES/MANAGE_CHANNELS permission, or the target role is above the bot."
++    ),
++    "delete_channel_permission": (
++        "Bot lacks MANAGE_ROLES/MANAGE_CHANNELS permission, or the target overwrite is inaccessible."
++    ),
++    "delete_channel": (
++        "Bot lacks MANAGE_CHANNELS permission for this channel or guild."
++    ),
+     "create_thread": (
+         "Bot lacks CREATE_PUBLIC_THREADS in this channel, or cannot view it."
+     ),
+@@ -839,6 +1087,19 @@ def _run_discord_action(
+     before: str = "",
+     after: str = "",
+     auto_archive_duration: int = 1440,
++    channel_type: str = "text",
++    parent_id: str = "",
++    topic: str = "",
++    position: Any = "",
++    nsfw: Any = "",
++    rate_limit_per_user: Any = "",
++    bitrate: Any = "",
++    user_limit: Any = "",
++    lock_permissions: Any = "",
++    overwrite_id: str = "",
++    overwrite_type: str = "",
++    allow: str = "0",
++    deny: str = "0",
+ ) -> str:
+     """Shared handler logic for both discord tools."""
+     token = _get_bot_token()
+@@ -872,6 +1133,9 @@ def _run_discord_action(
+         "message_id": message_id,
+         "query": query,
+         "name": name,
++        "position": position,
++        "overwrite_id": overwrite_id,
++        "overwrite_type": overwrite_type,
+     }
+ 
+     missing = [p for p in _REQUIRED_PARAMS.get(action, []) if not local_vars.get(p)]
+@@ -894,6 +1158,19 @@ def _run_discord_action(
+             before=before,
+             after=after,
+             auto_archive_duration=auto_archive_duration,
++            channel_type=channel_type,
++            parent_id=parent_id,
++            topic=topic,
++            position=position,
++            nsfw=nsfw,
++            rate_limit_per_user=rate_limit_per_user,
++            bitrate=bitrate,
++            user_limit=user_limit,
++            lock_permissions=lock_permissions,
++            overwrite_id=overwrite_id,
++            overwrite_type=overwrite_type,
++            allow=allow,
++            deny=deny,
+         )
+     except DiscordAPIError as e:
+         logger.warning("Discord API error in %s action '%s': %s", tool_label, action, e)
+@@ -923,6 +1200,10 @@ _HANDLER_DEFAULTS = {
+     "action": "", "guild_id": "", "channel_id": "", "user_id": "",
+     "role_id": "", "message_id": "", "query": "", "name": "",
+     "limit": 50, "before": "", "after": "", "auto_archive_duration": 1440,
++    "channel_type": "text", "parent_id": "", "topic": "", "position": "",
++    "nsfw": "", "rate_limit_per_user": "", "bitrate": "", "user_limit": "",
++    "lock_permissions": "", "overwrite_id": "", "overwrite_type": "",
++    "allow": "0", "deny": "0",
+ }
+ 
+ 
