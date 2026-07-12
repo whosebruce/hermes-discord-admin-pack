@@ -1,0 +1,8 @@
+# Copy these values into the LOCAL HERMES_HOME/config.yaml for each gateway/profile.
+# Never put real Discord IDs or secrets in this public repository.
+discord:
+  require_mention: true
+  auto_thread: true
+  auto_thread_free_response: true
+  free_response_channels:
+    - 'YOUR_TRUSTED_CHANNEL_ID'

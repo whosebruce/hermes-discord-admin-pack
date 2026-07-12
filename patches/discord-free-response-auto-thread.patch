@@ -1,0 +1,116 @@
+diff --git a/hermes_cli/config.py b/hermes_cli/config.py
+index 4dc42e702..1564832ad 100644
+--- a/hermes_cli/config.py
++++ b/hermes_cli/config.py
+@@ -2306,6 +2306,7 @@ DEFAULT_CONFIG = {
+         "free_response_channels": "",  # Comma-separated channel IDs where bot responds without mention
+         "allowed_channels": "",        # If set, bot ONLY responds in these channel IDs (whitelist)
+         "auto_thread": True,           # Auto-create threads on @mention in channels (like Slack)
++        "auto_thread_free_response": False,  # Also auto-thread messages in free_response_channels
+         "thread_require_mention": False,  # If True, require @mention in threads too (multi-bot threads)
+         "bots_require_inline_mention": False,  # Multi-bot rooms: if True, another bot must type @thisbot in its message to trigger a reply; a Discord reply/quote alone won't. Prevents two bots auto-replying to each other forever. Does not affect humans.
+         "history_backfill": True,         # If True, prepend recent channel scrollback when bot is triggered (recovers messages missed while require_mention gated them out)
+diff --git a/plugins/platforms/discord/adapter.py b/plugins/platforms/discord/adapter.py
+index bfe472450..f744dd7f4 100644
+--- a/plugins/platforms/discord/adapter.py
++++ b/plugins/platforms/discord/adapter.py
+@@ -4713,6 +4713,25 @@ class DiscordAdapter(BasePlatformAdapter):
+             "on",
+         }
+ 
++    def _discord_auto_thread_free_response(self) -> bool:
++        """Return whether free-response channel messages should auto-thread.
++
++        Hermes skips auto-threading in ``free_response_channels`` by default to
++        avoid surprise thread creation in chatty rooms. Command-center channels
++        can opt into free-response *and* per-request threads explicitly.
++        """
++        configured = self.config.extra.get("auto_thread_free_response")
++        if configured is not None:
++            if isinstance(configured, str):
++                return configured.lower() in {"true", "1", "yes", "on"}
++            return bool(configured)
++        return os.getenv("DISCORD_AUTO_THREAD_FREE_RESPONSE", "false").lower() in {
++            "true",
++            "1",
++            "yes",
++            "on",
++        }
++
+     def _discord_channel_keys(self, message: Any, parent_channel_id: Optional[str] = None) -> set[str]:
+         """Return channel identifiers accepted by Discord channel config gates.
+ 
+@@ -5851,7 +5870,9 @@ class DiscordAdapter(BasePlatformAdapter):
+         if not is_thread and not isinstance(message.channel, discord.DMChannel):
+             no_thread_channels_raw = os.getenv("DISCORD_NO_THREAD_CHANNELS", "")
+             no_thread_channels = {ch.strip() for ch in no_thread_channels_raw.split(",") if ch.strip()}
+-            skip_thread = bool(channel_keys & no_thread_channels) or is_free_channel
++            skip_thread = bool(channel_keys & no_thread_channels) or (
++                is_free_channel and not self._discord_auto_thread_free_response()
++            )
+             auto_thread = os.getenv("DISCORD_AUTO_THREAD", "true").lower() in {"true", "1", "yes"}
+             is_reply_message = getattr(message, "type", None) == discord.MessageType.reply
+             if auto_thread and not skip_thread and not is_voice_linked_channel and not is_reply_message:
+@@ -7683,6 +7704,8 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
+         os.environ["DISCORD_FREE_RESPONSE_CHANNELS"] = str(frc)
+     if "auto_thread" in discord_cfg and not os.getenv("DISCORD_AUTO_THREAD"):
+         os.environ["DISCORD_AUTO_THREAD"] = str(discord_cfg["auto_thread"]).lower()
++    if "auto_thread_free_response" in discord_cfg and not os.getenv("DISCORD_AUTO_THREAD_FREE_RESPONSE"):
++        os.environ["DISCORD_AUTO_THREAD_FREE_RESPONSE"] = str(discord_cfg["auto_thread_free_response"]).lower()
+     if "reactions" in discord_cfg and not os.getenv("DISCORD_REACTIONS"):
+         os.environ["DISCORD_REACTIONS"] = str(discord_cfg["reactions"]).lower()
+     # ignored_channels: channels where bot never responds (even when mentioned)
+diff --git a/tests/gateway/test_discord_channel_controls.py b/tests/gateway/test_discord_channel_controls.py
+index d84d56fbb..d5320e541 100644
+--- a/tests/gateway/test_discord_channel_controls.py
++++ b/tests/gateway/test_discord_channel_controls.py
+@@ -254,6 +254,26 @@ async def test_normal_channel_still_auto_threads(adapter, monkeypatch):
+     assert event.source.chat_type == "thread"
+ 
+ 
++@pytest.mark.asyncio
++async def test_free_response_channel_auto_threads_when_enabled(adapter, monkeypatch):
++    monkeypatch.setenv("DISCORD_REQUIRE_MENTION", "true")
++    monkeypatch.setenv("DISCORD_FREE_RESPONSE_CHANNELS", "900")
++    monkeypatch.setenv("DISCORD_AUTO_THREAD_FREE_RESPONSE", "true")
++    monkeypatch.delenv("DISCORD_AUTO_THREAD", raising=False)
++    monkeypatch.delenv("DISCORD_NO_THREAD_CHANNELS", raising=False)
++    monkeypatch.delenv("DISCORD_IGNORED_CHANNELS", raising=False)
++
++    fake_thread = FakeThread(channel_id=999, name="auto-thread")
++    adapter._auto_create_thread = AsyncMock(return_value=fake_thread)
++    message = make_message(channel=FakeTextChannel(channel_id=900), content="hello")
++
++    await adapter._handle_message(message)
++
++    adapter._auto_create_thread.assert_awaited_once()
++    event = adapter.handle_message.await_args.args[0]
++    assert event.source.chat_type == "thread"
++
++
+ @pytest.mark.asyncio
+ async def test_no_thread_channels_csv_parsing(adapter, monkeypatch):
+     """Multiple no_thread channel IDs parsed from CSV."""
+@@ -399,6 +419,22 @@ def test_config_bridges_no_thread_channels(monkeypatch, tmp_path):
+     assert os.getenv("DISCORD_NO_THREAD_CHANNELS") == "333"
+ 
+ 
++def test_config_bridges_auto_thread_free_response(monkeypatch, tmp_path):
++    import os
++    import yaml
++
++    (tmp_path / "config.yaml").write_text(yaml.dump({
++        "discord": {"auto_thread_free_response": True},
++    }))
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    monkeypatch.setenv("DISCORD_AUTO_THREAD_FREE_RESPONSE", "")
++
++    from gateway.config import load_gateway_config
++    load_gateway_config()
++
++    assert os.getenv("DISCORD_AUTO_THREAD_FREE_RESPONSE") == "true"
++
++
+ def test_config_env_var_takes_precedence(monkeypatch, tmp_path):
+     """Env vars should take precedence over config.yaml values."""
+     import yaml

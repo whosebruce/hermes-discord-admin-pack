@@ -5,9 +5,14 @@ A sanitized helper pack for enabling richer Discord server-management actions on
 This repo contains **no tokens, API keys, Discord IDs, or private config files**. It ships only:
 
 - a patch against Hermes Agent's `tools/discord_tool.py`
-- focused tests for the new Discord admin actions
-- an install script that applies the patch to a local Hermes checkout
-- an operator guide for configuring another Hermes agent safely
+- an opt-in patch that lets trusted free-response command channels auto-create threads
+- focused tests for the Discord changes
+- an install script that preflights and applies both patches to a local Hermes checkout
+- an operator guide and local-config helper for configuring another Hermes agent safely
+
+> **Agent/operator rule:** Discord behavior settings must live in each target
+> agent's local `HERMES_HOME/config.yaml`; editing Hermes source defaults is not
+> durable across updates. See [`AGENT_README.md`](AGENT_README.md).
 
 ## What this adds
 
@@ -30,6 +35,25 @@ Existing useful actions remain available:
 - `remove_role`
 - `fetch_messages`
 - `create_thread`
+
+## Free-response command channels with automatic threads
+
+Hermes normally answers free-response channels inline. For a command-center
+workflow where every new top-level request should open a fresh thread, this pack
+adds an explicit opt-in. Put these values in the **local** config for every
+gateway/profile that needs the behavior:
+
+```yaml
+discord:
+  require_mention: true
+  auto_thread: true
+  auto_thread_free_response: true
+  free_response_channels:
+    - 'YOUR_TRUSTED_CHANNEL_ID'
+```
+
+The source patch enables the feature; the local config selects it. Both are
+required. Never commit a real `config.yaml` or private channel IDs here.
 
 ## Safety model
 
@@ -70,12 +94,19 @@ git branch "backup/pre-discord-admin-pack-$stamp"
 # Clone this pack somewhere temporary
 git clone https://github.com/whosebruce/hermes-discord-admin-pack.git /tmp/hermes-discord-admin-pack
 
-# Apply the patch
+# Apply both patches
 bash /tmp/hermes-discord-admin-pack/scripts/apply-discord-admin-pack.sh ~/.hermes/hermes-agent
+
+# Persist command-channel behavior in LOCAL config (repeat --channel as needed)
+python /tmp/hermes-discord-admin-pack/scripts/configure-discord-threading.py \
+  --hermes-home ~/.hermes \
+  --channel 'YOUR_TRUSTED_CHANNEL_ID'
 
 # Run focused tests
 source venv/bin/activate
-python -m pytest -o 'addopts=' tests/tools/test_discord_tool.py -q
+python -m pytest -o 'addopts=' \
+  tests/tools/test_discord_tool.py \
+  tests/gateway/test_discord_channel_controls.py -q
 
 # Enable toolsets if needed
 hermes tools enable discord
@@ -87,11 +118,17 @@ hermes gateway restart
 systemctl --user restart hermes-gateway.service
 ```
 
-Expected focused test result after this pack:
+Test counts change as Hermes evolves; require a zero exit code rather than a
+hard-coded pass count.
 
-```text
-99 passed
-```
+## Surviving Hermes updates
+
+The local config is the source of truth for operator behavior, while this pack
+contains source patches Hermes may replace during an update. Before updating,
+back up each profile's `config.yaml`/`.env` and preserve local source changes.
+After updating, reapply the pack, confirm the local values, reinstall Hermes,
+restart the gateway, and perform a real top-level-message/thread-continuation
+test. Full agent instructions are in [`AGENT_README.md`](AGENT_README.md).
 
 ## Configure the Discord bot
 
@@ -223,4 +260,4 @@ The grep should return no real secrets. Placeholder strings like `DISCORD_BOT_TO
 
 ## Notes
 
-This is a bridge pack for Bruce's Hermes agents. Long term, the better home for these actions is an upstream Hermes Agent PR or a maintained fork/branch.
+This is a bridge pack for Hermes operators. Long term, the better home for these actions is an upstream Hermes Agent PR or a maintained fork/branch.

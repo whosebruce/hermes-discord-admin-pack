@@ -8,3 +8,5 @@ credentials/
 secrets/
 *.pem
 *.key
+__pycache__/
+*.pyc
