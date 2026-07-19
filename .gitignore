@@ -10,3 +10,6 @@ secrets/
 *.key
 __pycache__/
 *.pyc
+.pytest_cache/
+.privacy-patterns.local
+hermes-agent/

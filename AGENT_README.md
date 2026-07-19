@@ -30,9 +30,22 @@ discord:
   auto_thread_free_response: true
   free_response_channels:
     - 'YOUR_TRUSTED_CHANNEL_ID'
+
+  # Optional hardening for a dedicated command bot.
+  allowed_channels:
+    - 'YOUR_TRUSTED_CHANNEL_ID'
+  bots_require_inline_mention: true
+
+approvals:
+  mode: smart
 ```
 
 Keep IDs quoted so YAML does not coerce Discord snowflakes into numbers.
+
+`approvals.mode: smart` means low-risk actions may be approved automatically
+while genuinely risky operations remain owner-gated. It does not grant
+Discord permissions and must not be treated as authorization for destructive
+work.
 
 Hermes upstream normally keeps free-response channels inline. This pack's `discord-free-response-auto-thread.patch` adds the explicit `auto_thread_free_response` opt-in. Both the source patch **and** the local config value are required.
 
@@ -53,7 +66,9 @@ bash "$PACK/scripts/apply-discord-admin-pack.sh" "$HERMES_REPO"
 # 3. Write behavior to LOCAL config, not the source tree.
 python "$PACK/scripts/configure-discord-threading.py" \
   --hermes-home "$HOME/.hermes" \
-  --channel 'YOUR_TRUSTED_CHANNEL_ID'
+  --channel 'YOUR_TRUSTED_CHANNEL_ID' \
+  --restrict-to-configured-channels \
+  --approvals-mode smart
 
 # Repeat step 3 for every named profile that owns a separate gateway/config.
 
@@ -63,6 +78,13 @@ python -m pip install -e "$HERMES_REPO"
 python -m pytest -o 'addopts=' \
   "$HERMES_REPO/tests/tools/test_discord_tool.py" \
   "$HERMES_REPO/tests/gateway/test_discord_channel_controls.py" -q
+
+python -m pytest -q "$PACK/tests"
+
+python "$PACK/scripts/discord-pack-doctor.py" \
+  --hermes-repo "$HERMES_REPO" \
+  --hermes-home "$HOME/.hermes" \
+  --require-smart-approvals
 
 # 5. Restart and verify live behavior.
 hermes gateway restart
@@ -80,6 +102,11 @@ Before a Hermes update:
 6. restart each affected gateway; and
 7. perform a real Discord test from a configured top-level command channel.
 
+For update-resistant values, copy `examples/config-lock.yaml.example` to an
+ignored local path, replace placeholders locally, and run
+`scripts/apply-config-lock.py --lock <local-file>` after updates or config
+migrations. Never commit the populated lock.
+
 If the source patch is already upstream, `git apply --reverse --check` will identify it as already applied. Do not force a stale patch through conflicts; inspect upstream behavior and update the patch/tests.
 
 ## Verification contract
@@ -93,3 +120,18 @@ Report only evidence:
 - real behavior: one top-level message created a new thread, then one reply continued in that same thread.
 
 Do not report success from configuration inspection alone.
+
+## Bot-loop rule
+
+Keep bot-authored Discord messages disabled by default. Do not use replies or
+mentions between auto-replying Hermes profiles as the authoritative handoff
+mechanism; Discord reply mentions can create acknowledgement loops. Use a
+durable queue, ledger, or task database, with Discord only as a human-visible
+notification surface. See `docs/PROTECTED_COMMAND_LANES.md`.
+
+## Public release gate
+
+Before publishing, run `python scripts/privacy_scan.py --surface all` plus an
+ignored operator-pattern file. After pushing, fresh-clone the public HTTPS
+repository and rerun pack tests, current-upstream compatibility tests, and the
+all-surface privacy scan. The scanner must not print matched values.

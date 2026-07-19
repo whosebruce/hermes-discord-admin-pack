@@ -50,6 +50,8 @@ done
 
 echo
 echo "Patch state ready. Configure command channels in the LOCAL HERMES_HOME/config.yaml:"
-echo "  python '$PACK_DIR/scripts/configure-discord-threading.py' --channel 'YOUR_CHANNEL_ID'"
+echo "  python '$PACK_DIR/scripts/configure-discord-threading.py' --channel 'YOUR_CHANNEL_ID' --restrict-to-configured-channels --approvals-mode smart"
 echo "Then run tests with:"
 echo "  source venv/bin/activate && python -m pytest -o 'addopts=' tests/tools/test_discord_tool.py tests/gateway/test_discord_channel_controls.py -q"
+echo "Then run the identifier-safe readiness doctor:"
+echo "  python '$PACK_DIR/scripts/discord-pack-doctor.py' --hermes-repo '$TARGET_REPO' --require-smart-approvals"

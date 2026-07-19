@@ -1,5 +1,9 @@
 # Hermes Discord Admin Pack
 
+[![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
+
+Current public release: **1.1.0**. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+
 A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
 
 This repo contains **no tokens, API keys, Discord IDs, or private config files**. It ships only:
@@ -9,6 +13,8 @@ This repo contains **no tokens, API keys, Discord IDs, or private config files**
 - focused tests for the Discord changes
 - an install script that preflights and applies both patches to a local Hermes checkout
 - an operator guide and local-config helper for configuring another Hermes agent safely
+- a non-mutating doctor, generic config-lock helper, and daily current-upstream compatibility CI
+- an all-surface privacy scanner that checks the working tree, exact index, and reachable history
 
 > **Agent/operator rule:** Discord behavior settings must live in each target
 > agent's local `HERMES_HOME/config.yaml`; editing Hermes source defaults is not
@@ -55,9 +61,30 @@ discord:
 The source patch enables the feature; the local config selects it. Both are
 required. Never commit a real `config.yaml` or private channel IDs here.
 
+## Smart approvals
+
+Hermes can use risk-aware command approvals:
+
+```yaml
+approvals:
+  mode: smart
+```
+
+`smart` allows low-risk commands to proceed automatically while genuinely
+risky actions remain owner-gated. It does not grant Discord permissions and
+does not remove the requirement for clear owner intent before destructive
+actions. Never use `approvals.mode: off` on a shared or internet-facing
+gateway.
+
+See [`docs/PROTECTED_COMMAND_LANES.md`](docs/PROTECTED_COMMAND_LANES.md) for
+the complete private-lane, least-privilege, smart-approval, and multi-bot
+loop-safety pattern.
+
 ## Safety model
 
 This pack intentionally does **not** include credentials.
+
+Read [`SECURITY.md`](SECURITY.md) before granting server-management permissions.
 
 Each Hermes agent must have its own local `.env` with a Discord bot token:
 
@@ -100,13 +127,22 @@ bash /tmp/hermes-discord-admin-pack/scripts/apply-discord-admin-pack.sh ~/.herme
 # Persist command-channel behavior in LOCAL config (repeat --channel as needed)
 python /tmp/hermes-discord-admin-pack/scripts/configure-discord-threading.py \
   --hermes-home ~/.hermes \
-  --channel 'YOUR_TRUSTED_CHANNEL_ID'
+  --channel 'YOUR_TRUSTED_CHANNEL_ID' \
+  --restrict-to-configured-channels \
+  --approvals-mode smart
 
 # Run focused tests
 source venv/bin/activate
 python -m pytest -o 'addopts=' \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py -q
+
+# Run pack-local helper tests and the identifier-safe readiness doctor
+python -m pytest -q /tmp/hermes-discord-admin-pack/tests
+python /tmp/hermes-discord-admin-pack/scripts/discord-pack-doctor.py \
+  --hermes-repo ~/.hermes/hermes-agent \
+  --hermes-home ~/.hermes \
+  --require-smart-approvals
 
 # Enable toolsets if needed
 hermes tools enable discord
@@ -121,6 +157,11 @@ systemctl --user restart hermes-gateway.service
 Test counts change as Hermes evolves; require a zero exit code rather than a
 hard-coded pass count.
 
+The repository's scheduled GitHub Actions workflow repeats this process
+against current Hermes Agent `main`. The 1.1.0 release was locally verified
+against Hermes `4c96172d9`: both patches applied cleanly and 126 focused tests
+passed with two dependency deprecation warnings.
+
 ## Surviving Hermes updates
 
 The local config is the source of truth for operator behavior, while this pack
@@ -129,6 +170,21 @@ back up each profile's `config.yaml`/`.env` and preserve local source changes.
 After updating, reapply the pack, confirm the local values, reinstall Hermes,
 restart the gateway, and perform a real top-level-message/thread-continuation
 test. Full agent instructions are in [`AGENT_README.md`](AGENT_README.md).
+
+For values that must survive every update, copy
+[`examples/config-lock.yaml.example`](examples/config-lock.yaml.example) to an
+ignored local path, replace placeholders locally, and run:
+
+```bash
+python scripts/apply-config-lock.py --lock /path/to/local-config-lock.yaml
+python scripts/discord-pack-doctor.py \
+  --hermes-repo ~/.hermes/hermes-agent \
+  --hermes-home ~/.hermes \
+  --require-smart-approvals
+```
+
+The config-lock helper reports profile names and counts only; it never prints
+the protected values.
 
 ## Configure the Discord bot
 
@@ -239,24 +295,26 @@ Delete a channel:
 
 For destructive actions like `delete_channel`, require explicit user confirmation before calling the tool.
 
-## Secret-safety checklist before pushing changes
+## Privacy gate before pushing changes
 
 Run this from this pack repo before pushing:
 
 ```bash
 git status -sb
-find . -type f \
-  ! -path './.git/*' \
-  ! -path './README.md' \
-  ! -path './patches/*' \
-  ! -path './scripts/*' \
-  -print
-
-grep -RInE 'DISCORD_BOT_TOKEN=|OPENAI_API_KEY=|ANTHROPIC_API_KEY=|OPENROUTER_API_KEY=|gho_|github_pat_|xox[baprs]-|BEGIN (RSA|OPENSSH|PRIVATE) KEY|password\s*[:=]' . \
-  --exclude-dir=.git || true
+python scripts/privacy_scan.py --surface all
 ```
 
-The grep should return no real secrets. Placeholder strings like `DISCORD_BOT_TOKEN=REDACTED...` are okay.
+Add operator-specific names, IDs, paths, domains, and labels to the ignored
+`.privacy-patterns.local` file, then run:
+
+```bash
+python scripts/privacy_scan.py --surface all \
+  --patterns-file .privacy-patterns.local
+```
+
+The scanner reports where a finding occurred without printing the matched
+private value. After pushing, fresh-clone the public HTTPS repository and run
+the tests and scanner again.
 
 ## Notes
 

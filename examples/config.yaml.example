@@ -6,3 +6,15 @@ discord:
   auto_thread_free_response: true
   free_response_channels:
     - 'YOUR_TRUSTED_CHANNEL_ID'
+
+  # Optional hardening for a dedicated command bot.
+  allowed_channels:
+    - 'YOUR_TRUSTED_CHANNEL_ID'
+  history_backfill: true
+  history_backfill_limit: 50
+  reactions: true
+  bots_require_inline_mention: true
+
+approvals:
+  # Low-risk commands may be approved automatically; risky actions remain gated.
+  mode: smart

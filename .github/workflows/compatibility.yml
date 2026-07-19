@@ -1,0 +1,48 @@
+name: Compatibility and privacy
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-current-hermes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this pack with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out current Hermes Agent
+        uses: actions/checkout@v4
+        with:
+          repository: NousResearch/hermes-agent
+          path: hermes-agent
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ./hermes-agent
+          python -m pip install pytest pytest-asyncio pyyaml
+
+      - name: Test pack helper scripts
+        run: python -m pytest -q tests
+
+      - name: Apply patches and run upstream-focused tests
+        run: bash scripts/check-upstream-compat.sh hermes-agent
+
+      - name: Scan working tree, index, and reachable history
+        run: python scripts/privacy_scan.py --surface all
