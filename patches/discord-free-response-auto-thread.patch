@@ -1,8 +1,8 @@
 diff --git a/hermes_cli/config.py b/hermes_cli/config.py
-index 4dc42e702..1564832ad 100644
+index f29ce7774..bee6a3a36 100644
 --- a/hermes_cli/config.py
 +++ b/hermes_cli/config.py
-@@ -2306,6 +2306,7 @@ DEFAULT_CONFIG = {
+@@ -2528,6 +2528,7 @@ DEFAULT_CONFIG = {
          "free_response_channels": "",  # Comma-separated channel IDs where bot responds without mention
          "allowed_channels": "",        # If set, bot ONLY responds in these channel IDs (whitelist)
          "auto_thread": True,           # Auto-create threads on @mention in channels (like Slack)
@@ -11,10 +11,10 @@ index 4dc42e702..1564832ad 100644
          "bots_require_inline_mention": False,  # Multi-bot rooms: if True, another bot must type @thisbot in its message to trigger a reply; a Discord reply/quote alone won't. Prevents two bots auto-replying to each other forever. Does not affect humans.
          "history_backfill": True,         # If True, prepend recent channel scrollback when bot is triggered (recovers messages missed while require_mention gated them out)
 diff --git a/plugins/platforms/discord/adapter.py b/plugins/platforms/discord/adapter.py
-index bfe472450..f744dd7f4 100644
+index 215ae0d46..7dc5dafda 100644
 --- a/plugins/platforms/discord/adapter.py
 +++ b/plugins/platforms/discord/adapter.py
-@@ -4713,6 +4713,25 @@ class DiscordAdapter(BasePlatformAdapter):
+@@ -5782,6 +5782,25 @@ class DiscordAdapter(BasePlatformAdapter):
              "on",
          }
  
@@ -40,7 +40,7 @@ index bfe472450..f744dd7f4 100644
      def _discord_channel_keys(self, message: Any, parent_channel_id: Optional[str] = None) -> set[str]:
          """Return channel identifiers accepted by Discord channel config gates.
  
-@@ -5851,7 +5870,9 @@ class DiscordAdapter(BasePlatformAdapter):
+@@ -7162,7 +7181,9 @@ class DiscordAdapter(BasePlatformAdapter):
          if not is_thread and not isinstance(message.channel, discord.DMChannel):
              no_thread_channels_raw = os.getenv("DISCORD_NO_THREAD_CHANNELS", "")
              no_thread_channels = {ch.strip() for ch in no_thread_channels_raw.split(",") if ch.strip()}
@@ -51,7 +51,7 @@ index bfe472450..f744dd7f4 100644
              auto_thread = os.getenv("DISCORD_AUTO_THREAD", "true").lower() in {"true", "1", "yes"}
              is_reply_message = getattr(message, "type", None) == discord.MessageType.reply
              if auto_thread and not skip_thread and not is_voice_linked_channel and not is_reply_message:
-@@ -7683,6 +7704,8 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
+@@ -9341,6 +9362,8 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
          os.environ["DISCORD_FREE_RESPONSE_CHANNELS"] = str(frc)
      if "auto_thread" in discord_cfg and not os.getenv("DISCORD_AUTO_THREAD"):
          os.environ["DISCORD_AUTO_THREAD"] = str(discord_cfg["auto_thread"]).lower()
@@ -59,7 +59,7 @@ index bfe472450..f744dd7f4 100644
 +        os.environ["DISCORD_AUTO_THREAD_FREE_RESPONSE"] = str(discord_cfg["auto_thread_free_response"]).lower()
      if "reactions" in discord_cfg and not os.getenv("DISCORD_REACTIONS"):
          os.environ["DISCORD_REACTIONS"] = str(discord_cfg["reactions"]).lower()
-     # ignored_channels: channels where bot never responds (even when mentioned)
+     seeded_extra = {}
 diff --git a/tests/gateway/test_discord_channel_controls.py b/tests/gateway/test_discord_channel_controls.py
 index d84d56fbb..d5320e541 100644
 --- a/tests/gateway/test_discord_channel_controls.py

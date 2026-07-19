@@ -23,7 +23,7 @@ All notable public changes are recorded here. Real server IDs, profile names, cr
 
 ### Compatibility evidence
 
-- Tested against Hermes Agent `4c96172d9` on 2026-07-19.
+- Tested against Hermes Agent `e598cef87` on 2026-07-19.
 - Both patches applied cleanly.
 - Focused upstream suite: 126 passed; two dependency deprecation warnings.
 

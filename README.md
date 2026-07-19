@@ -159,7 +159,7 @@ hard-coded pass count.
 
 The repository's scheduled GitHub Actions workflow repeats this process
 against current Hermes Agent `main`. The 1.1.0 release was locally verified
-against Hermes `4c96172d9`: both patches applied cleanly and 126 focused tests
+against Hermes `e598cef87`: both patches applied cleanly and 126 focused tests
 passed with two dependency deprecation warnings.
 
 ## Surviving Hermes updates
