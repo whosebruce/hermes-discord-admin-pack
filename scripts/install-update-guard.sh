@@ -9,9 +9,13 @@ WRAPPER="$BIN_DIR/hermes-discord-safe-update"
 
 case "$PACK_DIR" in
   /tmp/*|/var/tmp/*)
+    if [[ "${HERMES_DISCORD_ALLOW_TEMP_PACK:-0}" == "1" ]]; then
+      :
+    else
     echo "error=pack_must_be_persistent" >&2
     echo "Clone the pack under ~/.hermes/local-packs before installing the guard." >&2
     exit 2
+    fi
     ;;
 esac
 

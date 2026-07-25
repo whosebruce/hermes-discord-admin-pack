@@ -141,6 +141,7 @@ def test_install_update_guard_creates_private_lock_and_wrapper(tmp_path: Path):
             "HERMES_HOME": str(home),
             "HERMES_DISCORD_CONFIG_LOCK": str(lock),
             "HERMES_DISCORD_BIN_DIR": str(bin_dir),
+            "HERMES_DISCORD_ALLOW_TEMP_PACK": "1",
         }
     )
     result = subprocess.run(
