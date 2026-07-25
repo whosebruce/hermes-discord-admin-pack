@@ -52,7 +52,7 @@ Hermes upstream normally keeps free-response channels inline. This pack's `disco
 ## Installation workflow
 
 ```bash
-PACK=/path/to/hermes-discord-admin-pack
+PACK="$HOME/.hermes/local-packs/hermes-discord-admin-pack"
 HERMES_REPO="$HOME/.hermes/hermes-agent"
 
 # 1. Inspect and preserve local work.
@@ -71,6 +71,10 @@ python "$PACK/scripts/configure-discord-threading.py" \
   --approvals-mode smart
 
 # Repeat step 3 for every named profile that owns a separate gateway/config.
+
+# 3b. Capture only the protected Discord/approval values to a private local
+# lock and install the persistent safe-update wrapper.
+bash "$PACK/scripts/install-update-guard.sh" "default=$HOME/.hermes"
 
 # 4. Reinstall and test.
 source "$HERMES_REPO/venv/bin/activate"
@@ -92,6 +96,21 @@ hermes gateway restart
 
 ## Update rule for every agent
 
+This behavior depends on both local config and source support. The config file
+normally survives an update; the source patch may not. Do not claim a blind
+`hermes update`, raw `git pull`, or replacement checkout is protected.
+
+After installing the guard, use:
+
+```bash
+git -C "$PACK" pull --ff-only
+hermes-discord-safe-update
+```
+
+The wrapper backs up local state, removes pack-owned worktree changes before
+pulling, preserves unrelated work, reapplies the source patches and private
+config lock, reinstalls, and verifies. It does not restart the gateway.
+
 Before a Hermes update:
 
 1. back up each profile's `config.yaml`, `.env`, and auth files without printing secrets;
@@ -102,10 +121,11 @@ Before a Hermes update:
 6. restart each affected gateway; and
 7. perform a real Discord test from a configured top-level command channel.
 
-For update-resistant values, copy `examples/config-lock.yaml.example` to an
-ignored local path, replace placeholders locally, and run
-`scripts/apply-config-lock.py --lock <local-file>` after updates or config
-migrations. Never commit the populated lock.
+The installer captures the currently effective approved fields into
+`~/.hermes/local-overrides/discord-admin-config-lock.yaml` by default. It
+captures only the documented Discord keys plus `approvals.mode`; it does not
+copy model keys, tokens, credentials, or unrelated config. Never commit the
+populated lock.
 
 If the source patch is already upstream, `git apply --reverse --check` will identify it as already applied. Do not force a stale patch through conflicts; inspect upstream behavior and update the patch/tests.
 

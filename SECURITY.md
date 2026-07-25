@@ -11,6 +11,8 @@ This pack modifies a Hermes Agent installation and can expose Discord server-man
 - Grant the Discord bot only the permissions it needs. `Administrator` is convenient but is not the least-privilege choice.
 - Destructive actions such as deleting channels still require explicit owner intent. `approvals.mode: smart` is not a bypass: it should automatically approve low-risk work and surface genuinely risky operations for owner approval.
 - Never use `approvals.mode: off` on an internet-facing or shared Discord gateway.
+- Keep the pack in a persistent local directory and use `hermes-discord-safe-update`; a temporary clone cannot provide an update wrapper after that directory is removed.
+- The safe-update wrapper intentionally stops before restarting the gateway if patching, stash restoration, tests, or the doctor fail.
 
 ## Local secret handling
 

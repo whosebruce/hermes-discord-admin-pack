@@ -2,6 +2,19 @@
 
 All notable public changes are recorded here. Real server IDs, profile names, credentials, and operator-specific paths are never included.
 
+## 1.1.1 — 2026-07-19
+
+### Added
+
+- Persistent-pack installation under the operator's Hermes home.
+- A privacy-minimized config-lock capture helper that stores only approved Discord and approval settings.
+- `hermes-discord-safe-update`, which backs up local state, preserves unrelated work, updates Hermes, reapplies the pack and config lock, reinstalls, and verifies before any gateway restart.
+
+### Clarified
+
+- The pack reproduces the protected top-level-message → fresh-thread behavior.
+- Local config alone survives ordinary source updates, but the source patch is only update-safe when the installed wrapper or an equivalent preservation workflow is used. A blind raw update is not claimed as protected.
+
 ## 1.1.0 — 2026-07-19
 
 ### Added
@@ -23,7 +36,7 @@ All notable public changes are recorded here. Real server IDs, profile names, cr
 
 ### Compatibility evidence
 
-- Tested against Hermes Agent `e598cef87` on 2026-07-19.
+- Tested against Hermes Agent `9823f15f6` on 2026-07-19.
 - Both patches applied cleanly.
 - Focused upstream suite: 126 passed; two dependency deprecation warnings.
 

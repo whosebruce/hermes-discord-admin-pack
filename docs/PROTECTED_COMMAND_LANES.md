@@ -103,3 +103,15 @@ After restarting the gateway:
 3. Reply inside that thread and confirm the same session continues.
 4. Send a message in a non-allowed channel and confirm the dedicated bot stays silent.
 5. Try one low-risk action and one intentionally blocked/risky test to confirm smart approvals are behaving as expected.
+
+## Update persistence
+
+The lane IDs and smart-approval mode live in local `config.yaml`, but
+free-response auto-thread support is also a Hermes source patch until that
+behavior exists upstream. A raw source update is therefore not sufficient.
+
+Keep this pack in a persistent local directory, run
+`scripts/install-update-guard.sh`, and use `hermes-discord-safe-update` for
+Hermes source updates. The wrapper reapplies both layers and refuses to restart
+the gateway automatically. If compatibility tests or the doctor fail, leave the
+existing gateway untouched and resolve the update before restarting.

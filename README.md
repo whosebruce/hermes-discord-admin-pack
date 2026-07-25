@@ -2,7 +2,7 @@
 
 [![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
 
-Current public release: **1.1.0**. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+Current public release: **1.1.1**. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
 
 A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
 
@@ -118,18 +118,28 @@ git status -sb
 stamp=$(date +%Y%m%d-%H%M%S)
 git branch "backup/pre-discord-admin-pack-$stamp"
 
-# Clone this pack somewhere temporary
-git clone https://github.com/whosebruce/hermes-discord-admin-pack.git /tmp/hermes-discord-admin-pack
+# Keep the pack outside the Hermes source checkout so update tooling survives.
+PACK="$HOME/.hermes/local-packs/hermes-discord-admin-pack"
+mkdir -p "$(dirname "$PACK")"
+if [[ -d "$PACK/.git" ]]; then
+  git -C "$PACK" pull --ff-only
+else
+  git clone https://github.com/whosebruce/hermes-discord-admin-pack.git "$PACK"
+fi
 
 # Apply both patches
-bash /tmp/hermes-discord-admin-pack/scripts/apply-discord-admin-pack.sh ~/.hermes/hermes-agent
+bash "$PACK/scripts/apply-discord-admin-pack.sh" ~/.hermes/hermes-agent
 
 # Persist command-channel behavior in LOCAL config (repeat --channel as needed)
-python /tmp/hermes-discord-admin-pack/scripts/configure-discord-threading.py \
+python "$PACK/scripts/configure-discord-threading.py" \
   --hermes-home ~/.hermes \
   --channel 'YOUR_TRUSTED_CHANNEL_ID' \
   --restrict-to-configured-channels \
   --approvals-mode smart
+
+# Capture only Discord + approvals values into a private local lock and install
+# the safe-update wrapper. Add more NAME=HERMES_HOME arguments for profiles.
+bash "$PACK/scripts/install-update-guard.sh" "default=$HOME/.hermes"
 
 # Run focused tests
 source venv/bin/activate
@@ -138,8 +148,8 @@ python -m pytest -o 'addopts=' \
   tests/gateway/test_discord_channel_controls.py -q
 
 # Run pack-local helper tests and the identifier-safe readiness doctor
-python -m pytest -q /tmp/hermes-discord-admin-pack/tests
-python /tmp/hermes-discord-admin-pack/scripts/discord-pack-doctor.py \
+python -m pytest -q "$PACK/tests"
+python "$PACK/scripts/discord-pack-doctor.py" \
   --hermes-repo ~/.hermes/hermes-agent \
   --hermes-home ~/.hermes \
   --require-smart-approvals
@@ -158,18 +168,33 @@ Test counts change as Hermes evolves; require a zero exit code rather than a
 hard-coded pass count.
 
 The repository's scheduled GitHub Actions workflow repeats this process
-against current Hermes Agent `main`. The 1.1.0 release was locally verified
-against Hermes `e598cef87`: both patches applied cleanly and 126 focused tests
+against current Hermes Agent `main`. The 1.1.1 release was locally verified
+against Hermes `9823f15f6`: both patches applied cleanly and 126 focused tests
 passed with two dependency deprecation warnings.
 
 ## Surviving Hermes updates
 
-The local config is the source of truth for operator behavior, while this pack
-contains source patches Hermes may replace during an update. Before updating,
-back up each profile's `config.yaml`/`.env` and preserve local source changes.
-After updating, reapply the pack, confirm the local values, reinstall Hermes,
-restart the gateway, and perform a real top-level-message/thread-continuation
-test. Full agent instructions are in [`AGENT_README.md`](AGENT_README.md).
+The installed behavior has two layers:
+
+1. `config.yaml` stores the trusted lane IDs and `auto_thread_free_response`.
+2. The Hermes source checkout contains the code patch that honors that setting.
+
+The config normally survives a source update, but the source patch may not.
+Therefore a blind `hermes update`, raw `git pull`, or replacement checkout is
+**not** claimed to preserve the complete behavior automatically. Install the
+guard above and use this wrapper instead:
+
+```bash
+git -C ~/.hermes/local-packs/hermes-discord-admin-pack pull --ff-only
+hermes-discord-safe-update
+```
+
+The wrapper backs up default/profile config and auth files, temporarily removes
+pack-owned source changes before pulling, preserves unrelated local work in a
+stash, updates Hermes, reapplies both patches, migrates config, reapplies the
+private config lock, reinstalls Hermes, and runs focused tests plus the doctor.
+It deliberately does not restart the gateway after a failed or unreviewed
+update.
 
 For values that must survive every update, copy
 [`examples/config-lock.yaml.example`](examples/config-lock.yaml.example) to an
@@ -183,8 +208,9 @@ python scripts/discord-pack-doctor.py \
   --require-smart-approvals
 ```
 
-The config-lock helper reports profile names and counts only; it never prints
-the protected values.
+The capture and apply helpers report profile names and counts only; they never
+print the protected channel IDs or approval values. Full agent instructions are
+in [`AGENT_README.md`](AGENT_README.md).
 
 ## Configure the Discord bot
 

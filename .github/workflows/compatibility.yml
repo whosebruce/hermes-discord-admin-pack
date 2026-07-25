@@ -39,7 +39,10 @@ jobs:
           python -m pip install pytest pytest-asyncio pyyaml
 
       - name: Test pack helper scripts
-        run: python -m pytest -q tests
+        run: |
+          python -m py_compile scripts/*.py tests/*.py
+          bash -n scripts/*.sh
+          python -m pytest -q tests
 
       - name: Apply patches and run upstream-focused tests
         run: bash scripts/check-upstream-compat.sh hermes-agent

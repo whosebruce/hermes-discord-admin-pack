@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -77,6 +78,84 @@ def test_config_lock_reapplies_values_without_printing_values(tmp_path: Path):
     config = yaml.safe_load((home / "config.yaml").read_text())
     assert config["discord"]["auto_thread"] is True
     assert config["approvals"]["mode"] == "smart"
+
+
+def test_capture_config_lock_keeps_values_out_of_stdout(tmp_path: Path):
+    home = tmp_path / "profile"
+    home.mkdir()
+    (home / "config.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "discord": {
+                    "require_mention": True,
+                    "auto_thread": True,
+                    "auto_thread_free_response": True,
+                    "free_response_channels": ["CHANNEL_ALPHA"],
+                    "allowed_channels": ["CHANNEL_ALPHA"],
+                },
+                "approvals": {"mode": "smart"},
+                "model": {"api_key": "DO_NOT_CAPTURE"},
+            }
+        )
+    )
+    output = tmp_path / "local-overrides" / "lock.yaml"
+    result = run_script(
+        "capture-discord-config-lock.py",
+        "--profile",
+        f"default={home}",
+        "--output",
+        str(output),
+        "--require-smart-approvals",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "CHANNEL_ALPHA" not in result.stdout
+    assert "DO_NOT_CAPTURE" not in result.stdout
+    lock = yaml.safe_load(output.read_text())
+    values = lock["profiles"]["default"]["values"]
+    assert values["discord.free_response_channels"] == ["CHANNEL_ALPHA"]
+    assert values["approvals.mode"] == "smart"
+    assert all("api_key" not in key for key in values)
+
+
+def test_install_update_guard_creates_private_lock_and_wrapper(tmp_path: Path):
+    home = tmp_path / "profile"
+    home.mkdir()
+    (home / "config.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "discord": {
+                    "require_mention": True,
+                    "auto_thread": True,
+                    "auto_thread_free_response": True,
+                    "free_response_channels": ["CHANNEL_ALPHA"],
+                },
+                "approvals": {"mode": "smart"},
+            }
+        )
+    )
+    lock = tmp_path / "private" / "lock.yaml"
+    bin_dir = tmp_path / "bin"
+    env = os.environ.copy()
+    env.update(
+        {
+            "HERMES_HOME": str(home),
+            "HERMES_DISCORD_CONFIG_LOCK": str(lock),
+            "HERMES_DISCORD_BIN_DIR": str(bin_dir),
+        }
+    )
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "install-update-guard.sh"), f"default={home}"],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "CHANNEL_ALPHA" not in result.stdout
+    assert lock.exists()
+    wrapper = bin_dir / "hermes-discord-safe-update"
+    assert wrapper.is_symlink()
+    assert wrapper.resolve() == ROOT / "scripts" / "hermes-discord-safe-update.sh"
 
 
 def test_doctor_config_inspection_reports_counts_not_identifiers(tmp_path: Path):
