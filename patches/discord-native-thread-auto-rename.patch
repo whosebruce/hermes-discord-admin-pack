@@ -1,0 +1,75 @@
+diff --git a/gateway/run.py b/gateway/run.py
+index 1dd0e9e..2653725 100644
+--- a/gateway/run.py
++++ b/gateway/run.py
+@@ -21942,12 +21942,19 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+             thread_name,
+         )
+         try:
++            rename_kwargs = {"only_if_current_name": guard_name}
++            if use_connector_guard:
++                # These controls belong to the upstream relay adapter only.
++                # The native Discord adapter intentionally exposes the smaller
++                # ``only_if_current_name`` contract.
++                rename_kwargs.update(
++                    prefer_connector_created=True,
++                    parent_chat_id=parent_chat_id,
++                )
+             renamed = await rename_thread(
+                 target_thread_id,
+                 thread_name,
+-                prefer_connector_created=use_connector_guard,
+-                only_if_current_name=guard_name,
+-                parent_chat_id=parent_chat_id,
++                **rename_kwargs,
+             )
+             logger.info(
+                 "discord auto-thread rename result: thread=%s applied=%s",
+diff --git a/tests/gateway/relay/test_relay_threads.py b/tests/gateway/relay/test_relay_threads.py
+index a456f60..76e9bbe 100644
+--- a/tests/gateway/relay/test_relay_threads.py
++++ b/tests/gateway/relay/test_relay_threads.py
+@@ -558,3 +558,43 @@ async def test_title_rename_true_miss_noops():
+     )
+     await task
+     assert renames == []
++
++
++@pytest.mark.asyncio
++async def test_native_discord_title_rename_uses_native_adapter_signature():
++    """Native Discord renames must not receive relay-only keyword arguments."""
++    from types import SimpleNamespace
++
++    renames: list = []
++
++    class NativeAdapter:
++        async def rename_thread(
++            self,
++            thread_id,
++            name,
++            *,
++            only_if_current_name=None,
++        ):
++            renames.append((thread_id, name, only_if_current_name))
++            return True
++
++    runner = _mk_runner_stub()(NativeAdapter())
++    src = SimpleNamespace(
++        platform=Platform.DISCORD,
++        chat_id="thread-native",
++        chat_type="thread",
++        thread_id="thread-native",
++        delivered_via_upstream_relay=False,
++        auto_thread_created=True,
++        auto_thread_initial_name="Original opening message",
++    )
++
++    await runner._rename_discord_auto_thread_for_session_title(
++        src,  # type: ignore[arg-type]
++        "sess-native",
++        "Useful semantic title",
++    )
++
++    assert renames == [
++        ("thread-native", "Useful semantic title", "Original opening message")
++    ]

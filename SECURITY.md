@@ -16,7 +16,7 @@ This pack modifies a Hermes Agent installation and can expose Discord server-man
 
 ## Local secret handling
 
-Store `DISCORD_BOT_TOKEN` only in the target profile's local `.env`. Keep real config-lock files outside this repository or in an ignored local file. The committed examples contain placeholders only.
+Store `DISCORD_BOT_TOKEN` only in the target profile's local `.env`. Keep real config-lock files outside this repository or in an ignored local file. The committed examples contain placeholders only. The lock capture helper is allowlist-only: it intentionally omits credentials, model/provider settings, personal paths, and unrelated configuration.
 
 ## Release scanning
 

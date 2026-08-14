@@ -41,6 +41,7 @@ def test_configure_command_lane_sets_smart_approvals_without_logging_identifier(
         "--restrict-to-configured-channels",
         "--approvals-mode",
         "smart",
+        "--enable-output-redaction",
     )
     assert result.returncode == 0, result.stderr
     assert "CHANNEL_ALPHA" not in result.stdout
@@ -49,6 +50,8 @@ def test_configure_command_lane_sets_smart_approvals_without_logging_identifier(
     assert config["discord"]["allowed_channels"] == ["CHANNEL_ALPHA"]
     assert config["discord"]["auto_thread_free_response"] is True
     assert config["approvals"]["mode"] == "smart"
+    assert config["security"]["redact_secrets"] is True
+    assert config["privacy"]["redact_pii"] is True
 
 
 def test_config_lock_reapplies_values_without_printing_values(tmp_path: Path):
@@ -94,6 +97,8 @@ def test_capture_config_lock_keeps_values_out_of_stdout(tmp_path: Path):
                     "allowed_channels": ["CHANNEL_ALPHA"],
                 },
                 "approvals": {"mode": "smart"},
+                "security": {"redact_secrets": True},
+                "privacy": {"redact_pii": True},
                 "model": {"api_key": "DO_NOT_CAPTURE"},
             }
         )
@@ -114,6 +119,8 @@ def test_capture_config_lock_keeps_values_out_of_stdout(tmp_path: Path):
     values = lock["profiles"]["default"]["values"]
     assert values["discord.free_response_channels"] == ["CHANNEL_ALPHA"]
     assert values["approvals.mode"] == "smart"
+    assert values["security.redact_secrets"] is True
+    assert values["privacy.redact_pii"] is True
     assert all("api_key" not in key for key in values)
 
 
@@ -199,6 +206,21 @@ def test_doctor_recognizes_semantically_applied_patches(tmp_path: Path):
         tmp_path, Path("discord-free-response-auto-thread.patch")
     )
     assert module.semantic_patch_present(tmp_path, Path("hermes-discord-admin.patch"))
+
+
+def test_doctor_recognizes_native_thread_rename_patch(tmp_path: Path):
+    module = load_script("discord-pack-doctor.py")
+    (tmp_path / "gateway").mkdir()
+    (tmp_path / "tests" / "gateway" / "relay").mkdir(parents=True)
+    (tmp_path / "gateway" / "run.py").write_text(
+        'rename_kwargs = {"only_if_current_name": guard_name}\n'
+    )
+    (tmp_path / "tests" / "gateway" / "relay" / "test_relay_threads.py").write_text(
+        "def test_native_discord_title_rename_uses_native_adapter_signature(): pass\n"
+    )
+    assert module.semantic_patch_present(
+        tmp_path, Path("discord-native-thread-auto-rename.patch")
+    )
 
 
 def test_privacy_scanner_passes_working_tree():

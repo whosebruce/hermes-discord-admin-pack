@@ -38,6 +38,11 @@ discord:
 
 approvals:
   mode: smart
+
+security:
+  redact_secrets: true
+privacy:
+  redact_pii: true
 ```
 
 Keep IDs quoted so YAML does not coerce Discord snowflakes into numbers.
@@ -48,6 +53,10 @@ Discord permissions and must not be treated as authorization for destructive
 work.
 
 Hermes upstream normally keeps free-response channels inline. This pack's `discord-free-response-auto-thread.patch` adds the explicit `auto_thread_free_response` opt-in. Both the source patch **and** the local config value are required.
+
+The pack also applies `discord-native-thread-auto-rename.patch`, which keeps
+semantic thread-title updates compatible with the native Discord adapter's
+guarded rename signature. It has no private configuration values.
 
 ## Installation workflow
 
@@ -68,7 +77,8 @@ python "$PACK/scripts/configure-discord-threading.py" \
   --hermes-home "$HOME/.hermes" \
   --channel 'YOUR_TRUSTED_CHANNEL_ID' \
   --restrict-to-configured-channels \
-  --approvals-mode smart
+  --approvals-mode smart \
+  --enable-output-redaction
 
 # Repeat step 3 for every named profile that owns a separate gateway/config.
 
@@ -81,7 +91,8 @@ source "$HERMES_REPO/venv/bin/activate"
 python -m pip install -e "$HERMES_REPO"
 python -m pytest -o 'addopts=' \
   "$HERMES_REPO/tests/tools/test_discord_tool.py" \
-  "$HERMES_REPO/tests/gateway/test_discord_channel_controls.py" -q
+  "$HERMES_REPO/tests/gateway/test_discord_channel_controls.py" \
+  "$HERMES_REPO/tests/gateway/relay/test_relay_threads.py" -q
 
 python -m pytest -q "$PACK/tests"
 
@@ -123,8 +134,9 @@ Before a Hermes update:
 
 The installer captures the currently effective approved fields into
 `~/.hermes/local-overrides/discord-admin-config-lock.yaml` by default. It
-captures only the documented Discord keys plus `approvals.mode`; it does not
-copy model keys, tokens, credentials, or unrelated config. Never commit the
+captures only allowlisted Discord behavior, approval policy, Discord streaming,
+and redaction settings; it does not copy model keys, tokens, credentials,
+personal paths, or unrelated config. Never commit the
 populated lock.
 
 If the source patch is already upstream, `git apply --reverse --check` will identify it as already applied. Do not force a stale patch through conflicts; inspect upstream behavior and update the patch/tests.
@@ -134,7 +146,7 @@ If the source patch is already upstream, `git apply --reverse --check` will iden
 Report only evidence:
 
 - local config path(s) updated (never their secret contents);
-- patch status for both patch files;
+- patch status for all three patch files;
 - focused pytest result;
 - gateway restart result; and
 - real behavior: one top-level message created a new thread, then one reply continued in that same thread.

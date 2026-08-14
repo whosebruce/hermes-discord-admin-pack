@@ -1,0 +1,3 @@
+# Patch payloads contain unified-diff context lines that may consist of one space.
+# They are syntax, not accidental source trailing whitespace.
+*.patch -whitespace

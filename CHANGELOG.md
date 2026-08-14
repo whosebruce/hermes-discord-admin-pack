@@ -2,6 +2,19 @@
 
 All notable public changes are recorded here. Real server IDs, profile names, credentials, and operator-specific paths are never included.
 
+## 1.2.0 — 2026-08-14
+
+### Added
+
+- Native Discord semantic thread-title auto-rename compatibility.
+- Safe output-redaction configuration for local Hermes profiles.
+
+### Changed
+
+- Refreshed the Discord administration and free-response auto-thread patches against current Hermes Agent.
+- Expanded the private config-lock allowlist to preserve reusable Discord, approval, streaming, and redaction behavior while excluding credentials, personal paths, model/provider settings, and unrelated config.
+- Extended current-upstream, privacy, and fresh-clone verification to all three patches.
+
 ## 1.1.1 — 2026-07-19
 
 ### Added
