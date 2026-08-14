@@ -55,6 +55,17 @@ def semantic_patch_present(repo: Path, patch: Path) -> bool:
                 "delete_channel",
             )
         )
+    if patch.name == "discord-native-thread-auto-rename.patch":
+        gateway = repo / "gateway" / "run.py"
+        tests = repo / "tests" / "gateway" / "relay" / "test_relay_threads.py"
+        if not gateway.exists() or not tests.exists():
+            return False
+        gateway_text = gateway.read_text(encoding="utf-8", errors="replace")
+        test_text = tests.read_text(encoding="utf-8", errors="replace")
+        return (
+            'rename_kwargs = {"only_if_current_name": guard_name}' in gateway_text
+            and "test_native_discord_title_rename_uses_native_adapter_signature" in test_text
+        )
     return False
 
 

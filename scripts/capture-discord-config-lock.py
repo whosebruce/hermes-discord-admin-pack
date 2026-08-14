@@ -13,12 +13,25 @@ DISCORD_KEYS = (
     "require_mention",
     "auto_thread",
     "auto_thread_free_response",
+    "thread_require_mention",
     "free_response_channels",
     "allowed_channels",
+    "ignored_channels",
+    "no_thread_channels",
     "history_backfill",
     "history_backfill_limit",
+    "missed_message_backfill",
     "reactions",
     "bots_require_inline_mention",
+    "server_actions",
+)
+PORTABLE_PATHS = (
+    "approvals.mode",
+    "approvals.cron_mode",
+    "approvals.gateway_timeout",
+    "security.redact_secrets",
+    "privacy.redact_pii",
+    "display.platforms.discord.streaming",
 )
 REQUIRED = {
     "require_mention": True,
@@ -51,6 +64,15 @@ def channel_count(value: Any) -> int:
     return 0
 
 
+def dotted_get(data: dict[str, Any], dotted: str) -> tuple[bool, Any]:
+    current: Any = data
+    for part in dotted.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False, None
+        current = current[part]
+    return True, current
+
+
 def capture_profile(home: Path, require_smart: bool) -> tuple[dict[str, Any], int]:
     config = load_yaml(home / "config.yaml")
     discord_raw = config.get("discord")
@@ -70,8 +92,10 @@ def capture_profile(home: Path, require_smart: bool) -> tuple[dict[str, Any], in
     for key in DISCORD_KEYS:
         if key in discord:
             values[f"discord.{key}"] = discord[key]
-    if "mode" in approvals:
-        values["approvals.mode"] = approvals["mode"]
+    for dotted in PORTABLE_PATHS:
+        present, value = dotted_get(config, dotted)
+        if present:
+            values[dotted] = value
     return values, channel_count(discord.get("free_response_channels"))
 
 

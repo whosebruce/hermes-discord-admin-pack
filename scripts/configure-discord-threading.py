@@ -67,6 +67,11 @@ def main() -> int:
         choices=("manual", "smart", "off"),
         help="Set Hermes approvals.mode; 'smart' auto-approves low-risk work and prompts on risky actions",
     )
+    parser.add_argument(
+        "--enable-output-redaction",
+        action="store_true",
+        help="Enable security.redact_secrets and privacy.redact_pii in local config",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -98,11 +103,19 @@ def main() -> int:
         if not isinstance(approvals, dict):
             raise SystemExit(f"Expected approvals: to be a mapping in {config_path.name}")
         approvals["mode"] = args.approvals_mode
+    if args.enable_output_redaction:
+        security = config.setdefault("security", {})
+        privacy = config.setdefault("privacy", {})
+        if not isinstance(security, dict) or not isinstance(privacy, dict):
+            raise SystemExit("Expected security: and privacy: to be YAML mappings")
+        security["redact_secrets"] = True
+        privacy["redact_pii"] = True
 
     rendered = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
     print(f"free_response_channel_count={len(merged)}")
     print(f"allowed_channel_restriction={'enabled' if args.restrict_to_configured_channels else 'unchanged'}")
     print(f"approvals_mode={args.approvals_mode or 'unchanged'}")
+    print(f"output_redaction={'enabled' if args.enable_output_redaction else 'unchanged'}")
     if args.dry_run:
         print("dry_run=true")
         return 0

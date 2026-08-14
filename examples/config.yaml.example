@@ -18,3 +18,9 @@ discord:
 approvals:
   # Low-risk commands may be approved automatically; risky actions remain gated.
   mode: smart
+
+# Optional privacy hardening. These are behavioral flags, not credentials.
+security:
+  redact_secrets: true
+privacy:
+  redact_pii: true

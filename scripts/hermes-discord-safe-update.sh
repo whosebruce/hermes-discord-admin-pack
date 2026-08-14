@@ -9,8 +9,13 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="$HERMES_HOME_DIR/backups/discord-safe-update-$STAMP"
 
 [[ -d "$HERMES_REPO/.git" ]] || { echo "error=hermes_repo_missing" >&2; exit 2; }
-[[ -f "$PACK_DIR/patches/discord-free-response-auto-thread.patch" ]] \
-  || { echo "error=persistent_pack_missing" >&2; exit 2; }
+for required_patch in \
+  hermes-discord-admin.patch \
+  discord-free-response-auto-thread.patch \
+  discord-native-thread-auto-rename.patch; do
+  [[ -f "$PACK_DIR/patches/$required_patch" ]] \
+    || { echo "error=persistent_pack_missing patch=$required_patch" >&2; exit 2; }
+done
 [[ -f "$CONFIG_LOCK" ]] || { echo "error=config_lock_missing" >&2; exit 2; }
 
 mkdir -p "$BACKUP_DIR"
@@ -46,6 +51,10 @@ head_has_semantic_patch() {
     hermes-discord-admin.patch)
       text="$(git show HEAD:tools/discord_tool.py 2>/dev/null || true)"
       [[ "$text" == *"set_channel_permission"* && "$text" == *"move_channel"* ]]
+      ;;
+    discord-native-thread-auto-rename.patch)
+      text="$(git show HEAD:gateway/run.py 2>/dev/null || true)"
+      [[ "$text" == *'rename_kwargs = {"only_if_current_name": guard_name}'* ]]
       ;;
     *) return 1 ;;
   esac
@@ -92,7 +101,8 @@ python "$PACK_DIR/scripts/apply-config-lock.py" --lock "$CONFIG_LOCK"
 
 python -m pytest -o 'addopts=' \
   tests/tools/test_discord_tool.py \
-  tests/gateway/test_discord_channel_controls.py -q
+  tests/gateway/test_discord_channel_controls.py \
+  tests/gateway/relay/test_relay_threads.py -q
 python "$PACK_DIR/scripts/discord-pack-doctor.py" \
   --hermes-repo "$HERMES_REPO" \
   --hermes-home "$HERMES_HOME_DIR" \

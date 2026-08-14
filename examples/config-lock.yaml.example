@@ -16,3 +16,5 @@ profiles:
       discord.reactions: true
       discord.bots_require_inline_mention: true
       approvals.mode: smart
+      security.redact_secrets: true
+      privacy.redact_pii: true

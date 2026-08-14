@@ -2,7 +2,7 @@
 
 [![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
 
-Current public release: **1.1.1**. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+Current public release: **1.2.0**. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
 
 A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
 
@@ -10,8 +10,9 @@ This repo contains **no tokens, API keys, Discord IDs, or private config files**
 
 - a patch against Hermes Agent's `tools/discord_tool.py`
 - an opt-in patch that lets trusted free-response command channels auto-create threads
+- a native Discord thread-title patch that keeps semantic auto-renaming compatible with the native adapter
 - focused tests for the Discord changes
-- an install script that preflights and applies both patches to a local Hermes checkout
+- an install script that preflights and applies all three patches to a local Hermes checkout
 - an operator guide and local-config helper for configuring another Hermes agent safely
 - a non-mutating doctor, generic config-lock helper, and daily current-upstream compatibility CI
 - an all-surface privacy scanner that checks the working tree, exact index, and reachable history
@@ -60,6 +61,10 @@ discord:
 
 The source patch enables the feature; the local config selects it. Both are
 required. Never commit a real `config.yaml` or private channel IDs here.
+
+The third patch fixes semantic auto-renaming for native Discord auto-threads.
+Without it, the gateway can pass relay-only keyword arguments to the native
+adapter and leave new threads stuck with their raw opening-message name.
 
 ## Smart approvals
 
@@ -127,7 +132,7 @@ else
   git clone https://github.com/whosebruce/hermes-discord-admin-pack.git "$PACK"
 fi
 
-# Apply both patches
+# Apply all three patches
 bash "$PACK/scripts/apply-discord-admin-pack.sh" ~/.hermes/hermes-agent
 
 # Persist command-channel behavior in LOCAL config (repeat --channel as needed)
@@ -135,7 +140,8 @@ python "$PACK/scripts/configure-discord-threading.py" \
   --hermes-home ~/.hermes \
   --channel 'YOUR_TRUSTED_CHANNEL_ID' \
   --restrict-to-configured-channels \
-  --approvals-mode smart
+  --approvals-mode smart \
+  --enable-output-redaction
 
 # Capture only Discord + approvals values into a private local lock and install
 # the safe-update wrapper. Add more NAME=HERMES_HOME arguments for profiles.
@@ -145,7 +151,8 @@ bash "$PACK/scripts/install-update-guard.sh" "default=$HOME/.hermes"
 source venv/bin/activate
 python -m pytest -o 'addopts=' \
   tests/tools/test_discord_tool.py \
-  tests/gateway/test_discord_channel_controls.py -q
+  tests/gateway/test_discord_channel_controls.py \
+  tests/gateway/relay/test_relay_threads.py -q
 
 # Run pack-local helper tests and the identifier-safe readiness doctor
 python -m pytest -q "$PACK/tests"
@@ -168,9 +175,8 @@ Test counts change as Hermes evolves; require a zero exit code rather than a
 hard-coded pass count.
 
 The repository's scheduled GitHub Actions workflow repeats this process
-against current Hermes Agent `main`. The 1.1.1 release was locally verified
-against Hermes `9823f15f6`: both patches applied cleanly and 126 focused tests
-passed with two dependency deprecation warnings.
+against current Hermes Agent `main`. Compatibility evidence is tied to each
+workflow run rather than a stale hard-coded upstream revision or test count.
 
 ## Surviving Hermes updates
 
@@ -191,7 +197,7 @@ hermes-discord-safe-update
 
 The wrapper backs up default/profile config and auth files, temporarily removes
 pack-owned source changes before pulling, preserves unrelated local work in a
-stash, updates Hermes, reapplies both patches, migrates config, reapplies the
+stash, updates Hermes, reapplies all three patches, migrates config, reapplies the
 private config lock, reinstalls Hermes, and runs focused tests plus the doctor.
 It deliberately does not restart the gateway after a failed or unreviewed
 update.
@@ -209,8 +215,13 @@ python scripts/discord-pack-doctor.py \
 ```
 
 The capture and apply helpers report profile names and counts only; they never
-print the protected channel IDs or approval values. Full agent instructions are
-in [`AGENT_README.md`](AGENT_README.md).
+print protected channel IDs or captured values. The capture allowlist includes
+Discord behavior, approval policy, Discord streaming, and the secret/PII
+redaction booleans; it excludes model credentials, provider keys, tokens,
+personal paths, and unrelated config. See the
+[portable local configuration matrix](docs/PORTABLE_LOCAL_CONFIG.md) for the
+public/private boundary. Full agent instructions are in
+[`AGENT_README.md`](AGENT_README.md).
 
 ## Configure the Discord bot
 
