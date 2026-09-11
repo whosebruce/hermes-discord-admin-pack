@@ -194,7 +194,7 @@ def test_doctor_recognizes_semantically_applied_patches(tmp_path: Path):
     (tmp_path / "hermes_cli").mkdir()
     (tmp_path / "plugins" / "platforms" / "discord").mkdir(parents=True)
     (tmp_path / "tools").mkdir()
-    (tmp_path / "hermes_cli" / "config.py").write_text("auto_thread_free_response = False\n")
+    (tmp_path / "hermes_cli" / "config_defaults.py").write_text("auto_thread_free_response = False\n")
     (tmp_path / "plugins" / "platforms" / "discord" / "adapter.py").write_text(
         "auto_thread_free_response DISCORD_AUTO_THREAD_FREE_RESPONSE\n"
     )
@@ -212,8 +212,8 @@ def test_doctor_recognizes_native_thread_rename_patch(tmp_path: Path):
     module = load_script("discord-pack-doctor.py")
     (tmp_path / "gateway").mkdir()
     (tmp_path / "tests" / "gateway" / "relay").mkdir(parents=True)
-    (tmp_path / "gateway" / "run.py").write_text(
-        'rename_kwargs = {"only_if_current_name": guard_name}\n'
+    (tmp_path / "gateway" / "run_topics.py").write_text(
+        'rename_kwargs = {"only_if_current_name": initial_name}\n'
     )
     (tmp_path / "tests" / "gateway" / "relay" / "test_relay_threads.py").write_text(
         "def test_native_discord_title_rename_uses_native_adapter_signature(): pass\n"

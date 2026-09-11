@@ -29,7 +29,9 @@ def run_git(repo: Path, *args: str) -> bool:
 def semantic_patch_present(repo: Path, patch: Path) -> bool:
     """Recognize pack behavior even when later local edits prevent reverse-apply."""
     if patch.name == "discord-free-response-auto-thread.patch":
-        config = repo / "hermes_cli" / "config.py"
+        config = repo / "hermes_cli" / "config_defaults.py"
+        if not config.exists():
+            config = repo / "hermes_cli" / "config.py"
         adapter = repo / "plugins" / "platforms" / "discord" / "adapter.py"
         if not config.exists() or not adapter.exists():
             return False
@@ -56,14 +58,17 @@ def semantic_patch_present(repo: Path, patch: Path) -> bool:
             )
         )
     if patch.name == "discord-native-thread-auto-rename.patch":
-        gateway = repo / "gateway" / "run.py"
+        gateway = repo / "gateway" / "run_topics.py"
+        if not gateway.exists():
+            gateway = repo / "gateway" / "run.py"
         tests = repo / "tests" / "gateway" / "relay" / "test_relay_threads.py"
         if not gateway.exists() or not tests.exists():
             return False
         gateway_text = gateway.read_text(encoding="utf-8", errors="replace")
         test_text = tests.read_text(encoding="utf-8", errors="replace")
         return (
-            'rename_kwargs = {"only_if_current_name": guard_name}' in gateway_text
+            "rename_kwargs" in gateway_text
+            and "only_if_current_name" in gateway_text
             and "test_native_discord_title_rename_uses_native_adapter_signature" in test_text
         )
     return False

@@ -2,7 +2,7 @@
 
 [![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
 
-Current public release: **1.2.0**. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+Current tagged release: **1.2.0**. The default branch also includes the current-upstream compatibility repair described in the changelog. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
 
 A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
 
@@ -10,7 +10,7 @@ This repo contains **no tokens, API keys, Discord IDs, or private config files**
 
 - a patch against Hermes Agent's `tools/discord_tool.py`
 - an opt-in patch that lets trusted free-response command channels auto-create threads
-- a native Discord thread-title patch that keeps semantic auto-renaming compatible with the native adapter
+- a regression-test patch for native Discord thread-title renaming, now supported by upstream
 - focused tests for the Discord changes
 - an install script that preflights and applies all three patches to a local Hermes checkout
 - an operator guide and local-config helper for configuring another Hermes agent safely
@@ -62,9 +62,9 @@ discord:
 The source patch enables the feature; the local config selects it. Both are
 required. Never commit a real `config.yaml` or private channel IDs here.
 
-The third patch fixes semantic auto-renaming for native Discord auto-threads.
-Without it, the gateway can pass relay-only keyword arguments to the native
-adapter and leave new threads stuck with their raw opening-message name.
+Current upstream already handles native Discord semantic renaming correctly.
+The third patch now adds only a regression test that verifies the guarded native
+adapter signature; it does not rewrite upstream gateway code.
 
 ## Smart approvals
 
@@ -147,9 +147,10 @@ python "$PACK/scripts/configure-discord-threading.py" \
 # the safe-update wrapper. Add more NAME=HERMES_HOME arguments for profiles.
 bash "$PACK/scripts/install-update-guard.sh" "default=$HOME/.hermes"
 
-# Run focused tests
+# Run focused tests (install their dependencies in the active environment)
 source venv/bin/activate
-python -m pytest -o 'addopts=' \
+python -m pip install -e ".[dev]"
+bash scripts/run_tests.sh \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py \
   tests/gateway/relay/test_relay_threads.py -q

@@ -54,9 +54,9 @@ work.
 
 Hermes upstream normally keeps free-response channels inline. This pack's `discord-free-response-auto-thread.patch` adds the explicit `auto_thread_free_response` opt-in. Both the source patch **and** the local config value are required.
 
-The pack also applies `discord-native-thread-auto-rename.patch`, which keeps
-semantic thread-title updates compatible with the native Discord adapter's
-guarded rename signature. It has no private configuration values.
+The pack also applies `discord-native-thread-auto-rename.patch`, now a test-only
+patch: current upstream already supports the native adapter's guarded rename
+signature. The regression test verifies that behavior without rewriting it.
 
 ## Installation workflow
 
@@ -88,8 +88,8 @@ bash "$PACK/scripts/install-update-guard.sh" "default=$HOME/.hermes"
 
 # 4. Reinstall and test.
 source "$HERMES_REPO/venv/bin/activate"
-python -m pip install -e "$HERMES_REPO"
-python -m pytest -o 'addopts=' \
+python -m pip install -e "$HERMES_REPO[dev]"
+bash "$HERMES_REPO/scripts/run_tests.sh" \
   "$HERMES_REPO/tests/tools/test_discord_tool.py" \
   "$HERMES_REPO/tests/gateway/test_discord_channel_controls.py" \
   "$HERMES_REPO/tests/gateway/relay/test_relay_threads.py" -q

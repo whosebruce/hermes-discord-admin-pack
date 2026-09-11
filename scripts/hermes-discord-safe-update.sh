@@ -53,8 +53,8 @@ head_has_semantic_patch() {
       [[ "$text" == *"set_channel_permission"* && "$text" == *"move_channel"* ]]
       ;;
     discord-native-thread-auto-rename.patch)
-      text="$(git show HEAD:gateway/run.py 2>/dev/null || true)"
-      [[ "$text" == *'rename_kwargs = {"only_if_current_name": guard_name}'* ]]
+      text="$(git show HEAD:tests/gateway/relay/test_relay_threads.py 2>/dev/null || true)"
+      [[ "$text" == *"test_native_discord_title_rename_uses_native_adapter_signature"* ]]
       ;;
     *) return 1 ;;
   esac
@@ -90,16 +90,18 @@ fi
 
 bash "$PACK_DIR/scripts/apply-discord-admin-pack.sh" "$HERMES_REPO"
 
-if [[ -d venv ]]; then
+if [[ -f .venv/bin/activate ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+elif [[ -f venv/bin/activate ]]; then
   # shellcheck disable=SC1091
   source venv/bin/activate
 fi
-python -m pip install -e .
-python -m pip install --quiet pytest pytest-asyncio
-hermes config migrate </dev/null || true
+python -m pip install -e ".[dev]"
+hermes config migrate </dev/null
 python "$PACK_DIR/scripts/apply-config-lock.py" --lock "$CONFIG_LOCK"
 
-python -m pytest -o 'addopts=' \
+bash scripts/run_tests.sh \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py \
   tests/gateway/relay/test_relay_threads.py -q

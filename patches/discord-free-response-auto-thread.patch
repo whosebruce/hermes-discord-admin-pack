@@ -1,22 +1,22 @@
 diff --git a/hermes_cli/config_defaults.py b/hermes_cli/config_defaults.py
-index af79d15..3dda50b 100644
+index a6e3212..c9e5982 100644
 --- a/hermes_cli/config_defaults.py
 +++ b/hermes_cli/config_defaults.py
-@@ -2027,6 +2027,7 @@ DEFAULT_CONFIG = {
-         "free_response_channels": "",  # Comma-separated channel IDs where bot responds without mention
-         "allowed_channels": "",        # If set, bot ONLY responds in these channel IDs (whitelist)
-         "auto_thread": True,           # Auto-create threads on @mention in channels (like Slack)
-+        "auto_thread_free_response": False,  # Also auto-thread messages in free_response_channels
-         "thread_require_mention": False,  # If True, require @mention in threads too (multi-bot threads)
-         "bots_require_inline_mention": False,  # Multi-bot rooms: if True, another bot must type @thisbot in its message to trigger a reply; a Discord reply/quote alone won't. Prevents two bots auto-replying to each other forever. Does not affect humans.
-         "history_backfill": True,         # If True, prepend recent channel scrollback when bot is triggered (recovers messages missed while require_mention gated them out)
+@@ -1439,6 +1439,7 @@ DEFAULT_CONFIG = {
+         "free_response_channels": "",  # comma-separated channel IDs answered without mention
+         "allowed_channels": "",  # if set, ONLY respond in these channel IDs (whitelist)
+         "auto_thread": True,  # auto-create threads on @mention in channels (like Slack)
++        "auto_thread_free_response": False,  # opt in to per-request command-channel threads
+         "thread_require_mention": False,  # require @mention in threads too (multi-bot threads)
+         # Multi-bot rooms: another bot must type @thisbot (a reply/quote alone won't) to trigger a
+         # reply — stops two bots replying to each other forever. Humans unaffected.
 diff --git a/plugins/platforms/discord/adapter.py b/plugins/platforms/discord/adapter.py
-index b5a1f4f..a1fa83a 100644
+index 4521301..1fcc868 100644
 --- a/plugins/platforms/discord/adapter.py
 +++ b/plugins/platforms/discord/adapter.py
-@@ -6745,6 +6745,25 @@ class DiscordAdapter(BasePlatformAdapter):
-             "on",
-         }
+@@ -4739,6 +4739,26 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
+         return self._extra_or_env_flag(
+             "bots_require_inline_mention", "DISCORD_BOTS_REQUIRE_INLINE_MENTION", "false", truthy=True)
  
 +    def _discord_auto_thread_free_response(self) -> bool:
 +        """Return whether free-response channel messages should auto-thread.
@@ -37,10 +37,11 @@ index b5a1f4f..a1fa83a 100644
 +            "on",
 +        }
 +
++
      def _discord_channel_keys(self, message: Any, parent_channel_id: Optional[str] = None) -> set[str]:
-         """Return channel identifiers accepted by Discord channel config gates.
- 
-@@ -8124,7 +8143,9 @@ class DiscordAdapter(BasePlatformAdapter):
+         """Channel keys (ID, bare name, ``#name``, plus parent for threads) accepted by channel gates."""
+         channel = getattr(message, "channel", None)
+@@ -5725,7 +5745,9 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
          auto_threaded_channel = None
          if not is_thread and not isinstance(message.channel, discord.DMChannel):
              no_thread_channels = self._get_no_thread_channels()
@@ -51,31 +52,14 @@ index b5a1f4f..a1fa83a 100644
              auto_thread = os.getenv("DISCORD_AUTO_THREAD", "true").lower() in {"true", "1", "yes"}
              is_reply_message = getattr(message, "type", None) == discord.MessageType.reply
              if auto_thread and not skip_thread and not is_voice_linked_channel and not is_reply_message:
-@@ -10286,7 +10307,8 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
-     The DiscordAdapter reads its runtime configuration via ``os.getenv()``
-     throughout the connect / handle code paths (``DISCORD_ALLOWED_USERS``,
-     ``DISCORD_REQUIRE_MENTION``, ``DISCORD_FREE_RESPONSE_CHANNELS``,
--    ``DISCORD_AUTO_THREAD``, ``DISCORD_REACTIONS``,
-+    ``DISCORD_AUTO_THREAD``, ``DISCORD_AUTO_THREAD_FREE_RESPONSE``,
-+    ``DISCORD_REACTIONS``,
-     ``DISCORD_IGNORED_CHANNELS``, ``DISCORD_ALLOWED_CHANNELS``,
-     ``DISCORD_NO_THREAD_CHANNELS``, ``DISCORD_HISTORY_BACKFILL``,
-     ``DISCORD_HISTORY_BACKFILL_LIMIT``, ``DISCORD_ALLOW_MENTION_*``,
-@@ -10367,6 +10389,14 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
-             os.environ["DISCORD_FREE_RESPONSE_CHANNELS"] = str(frc)
-     if "auto_thread" in discord_cfg and not os.getenv("DISCORD_AUTO_THREAD"):
-         os.environ["DISCORD_AUTO_THREAD"] = str(discord_cfg["auto_thread"]).lower()
-+    if "auto_thread_free_response" in discord_cfg:
-+        seeded_extra["auto_thread_free_response"] = str(
-+            discord_cfg["auto_thread_free_response"]
-+        ).lower()
-+        if not _skip_env_bridge and not os.getenv("DISCORD_AUTO_THREAD_FREE_RESPONSE"):
-+            os.environ["DISCORD_AUTO_THREAD_FREE_RESPONSE"] = str(
-+                discord_cfg["auto_thread_free_response"]
-+            ).lower()
-     if "reactions" in discord_cfg and not os.getenv("DISCORD_REACTIONS"):
-         os.environ["DISCORD_REACTIONS"] = str(discord_cfg["reactions"]).lower()
-     backfill_cfg = discord_cfg.get("missed_message_backfill")
+@@ -7000,6 +7022,7 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
+     if approval_mentions_cfg is not None:
+         _env_default("DISCORD_APPROVAL_MENTIONS", str(approval_mentions_cfg).lower())
+     _gate("free_response_channels", "DISCORD_FREE_RESPONSE_CHANNELS", from_platform_extra=False)
++    _gate("auto_thread_free_response", "DISCORD_AUTO_THREAD_FREE_RESPONSE", from_platform_extra=False, lower=True)
+     for key, env_key in (("auto_thread", "DISCORD_AUTO_THREAD"), ("reactions", "DISCORD_REACTIONS")):
+         if key in discord_cfg:
+             _env_default(env_key, str(discord_cfg[key]).lower())
 diff --git a/tests/gateway/test_discord_channel_controls.py b/tests/gateway/test_discord_channel_controls.py
 index 03a2103..21875f5 100644
 --- a/tests/gateway/test_discord_channel_controls.py

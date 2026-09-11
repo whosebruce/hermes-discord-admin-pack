@@ -35,17 +35,19 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ./hermes-agent
-          python -m pip install pytest pytest-asyncio pyyaml
+          python -m venv hermes-agent/.venv
+          hermes-agent/.venv/bin/python -m pip install -e "./hermes-agent[dev]"
+          echo "$GITHUB_WORKSPACE/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Test pack helper scripts
         run: |
           python -m py_compile scripts/*.py tests/*.py
-          bash -n scripts/*.sh
+          for script in scripts/*.sh; do bash -n "$script"; done
           python -m pytest -q tests
 
       - name: Apply patches and run upstream-focused tests
         run: bash scripts/check-upstream-compat.sh hermes-agent
 
       - name: Scan working tree, index, and reachable history
+        if: always()
         run: python scripts/privacy_scan.py --surface all

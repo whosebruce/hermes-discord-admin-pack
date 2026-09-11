@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — current-upstream compatibility
+
+- Rebase admin actions onto the current manifest-driven Discord dispatcher; preserve profile-scoped tokens and action allowlists.
+- Refresh command-channel threading against current config defaults and the per-profile YAML bridge.
+- Keep native semantic renaming upstream-owned; ship its regression test without an obsolete gateway source hunk.
+- Use the canonical isolated upstream test runner, install its development dependencies, and reuse the idempotent installer in compatibility CI.
+- Run privacy checks even when compatibility fails. Update doctor paths for decomposed upstream modules.
+- Accept numeric zero for channel positions. Migration errors stop the safe updater before completion.
+
+
 All notable public changes are recorded here. Real server IDs, profile names, credentials, and operator-specific paths are never included.
 
 ## 1.2.0 — 2026-08-14
