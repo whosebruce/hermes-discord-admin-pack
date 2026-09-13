@@ -2,7 +2,7 @@
 
 [![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
 
-Current tagged release: **1.2.0**. The default branch also includes the current-upstream compatibility repair described in the changelog. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+Current tagged release: **1.3.0**. This release uses the verified current-Hermes compatibility repair as its baseline. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
 
 A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
 
