@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+
+- Remove the obsolete free-response threading patch now that Hermes implements it natively.
+- Use `discord.free_response_auto_thread` in setup, examples, doctor, and config locks.
+- Translate legacy config-lock keys and remove the retired key from applied configs.
+- Refuse installation on Hermes without native threading or with the retired patch still present.
+- Keep the admin-action patch and native-title regression patch; add native threading tests to compatibility and update checks.
+- Older Hermes versions without native support must remain on a compatible older pack release.
+
 ## 1.3.0 — 2026-09-13
 
 - Rebase admin actions onto the current manifest-driven Discord dispatcher; preserve profile-scoped tokens and action allowlists.

@@ -91,10 +91,11 @@ def main() -> int:
         {
             "require_mention": True,
             "auto_thread": True,
-            "auto_thread_free_response": True,
+            "free_response_auto_thread": True,
             "free_response_channels": merged,
         }
     )
+    discord.pop("auto_thread_free_response", None)
     if args.restrict_to_configured_channels:
         allowed = _channels(discord.get("allowed_channels"))
         discord["allowed_channels"] = list(dict.fromkeys(allowed + merged))

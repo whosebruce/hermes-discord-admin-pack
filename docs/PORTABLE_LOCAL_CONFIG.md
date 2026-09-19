@@ -4,7 +4,7 @@ This pack publishes **behavior and tooling**, not an operator's live Hermes conf
 
 | Surface | Publicly reusable | Local/private value | Preservation method |
 |---|---|---|---|
-| Discord mention and thread behavior | `require_mention`, `auto_thread`, `auto_thread_free_response`, `thread_require_mention` | none unless a channel list is supplied | sanitized examples + private config lock |
+| Discord mention and thread behavior | `require_mention`, `auto_thread`, `free_response_auto_thread`, `thread_require_mention` | none unless a channel list is supplied | sanitized examples + private config lock |
 | Discord command lanes | list structure and configuration helper | real channel, guild, user, and role IDs | placeholders publicly; values only in ignored local config/lock |
 | Discord safety controls | `bots_require_inline_mention`, backfill policy, reactions, ignored/no-thread/allowed-channel structure | any IDs inside those lists/maps | allowlist-only private capture |
 | Discord admin actions | tool operations and tests | bot token, guild-specific permission targets | source patch publicly; token only in local `.env` |
@@ -28,7 +28,7 @@ from placeholders and supplies their own IDs locally.
 
 A release is considered portable only after:
 
-1. all three patches apply to current upstream Hermes;
+1. both remaining patches apply to current upstream Hermes;
 2. focused upstream and pack tests pass;
 3. the working tree, exact Git index, and reachable history pass privacy scans;
 4. an ignored operator-pattern scan passes without printing matched values;

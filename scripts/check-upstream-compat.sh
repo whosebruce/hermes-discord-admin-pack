@@ -5,7 +5,6 @@ TARGET_REPO="${1:?usage: check-upstream-compat.sh /path/to/hermes-agent}"
 PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PATCHES=(
   "$PACK_DIR/patches/hermes-discord-admin.patch"
-  "$PACK_DIR/patches/discord-free-response-auto-thread.patch"
   "$PACK_DIR/patches/discord-native-thread-auto-rename.patch"
 )
 
@@ -19,4 +18,5 @@ cd "$TARGET_REPO"
 bash scripts/run_tests.sh \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py \
+  tests/gateway/test_discord_free_response.py \
   tests/gateway/relay/test_relay_threads.py -q

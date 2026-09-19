@@ -8,7 +8,7 @@ This guide describes the reusable pattern only. Replace placeholders locally and
 discord:
   require_mention: true
   auto_thread: true
-  auto_thread_free_response: true
+  free_response_auto_thread: true
   free_response_channels:
     - 'YOUR_TRUSTED_CHANNEL_ID'
 

@@ -5,7 +5,6 @@ TARGET_REPO="${1:-$HOME/.hermes/hermes-agent}"
 PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PATCH_FILES=(
   "$PACK_DIR/patches/hermes-discord-admin.patch"
-  "$PACK_DIR/patches/discord-free-response-auto-thread.patch"
   "$PACK_DIR/patches/discord-native-thread-auto-rename.patch"
 )
 
@@ -21,11 +20,14 @@ for patch_file in "${PATCH_FILES[@]}"; do
   fi
 done
 
+TARGET_REPO="$(cd "$TARGET_REPO" && pwd)"
 cd "$TARGET_REPO"
 
 echo "Target: $TARGET_REPO"
 echo "Current status:"
 git status -sb
+
+python "$PACK_DIR/scripts/check-native-threading.py" "$TARGET_REPO"
 
 declare -a pending=()
 echo
@@ -53,6 +55,6 @@ echo
 echo "Patch state ready. Configure command channels in the LOCAL HERMES_HOME/config.yaml:"
 echo "  python '$PACK_DIR/scripts/configure-discord-threading.py' --channel 'YOUR_CHANNEL_ID' --restrict-to-configured-channels --approvals-mode smart --enable-output-redaction"
 echo "Then run tests with:"
-echo "  bash scripts/run_tests.sh tests/tools/test_discord_tool.py tests/gateway/test_discord_channel_controls.py tests/gateway/relay/test_relay_threads.py -q"
+echo "  bash scripts/run_tests.sh tests/tools/test_discord_tool.py tests/gateway/test_discord_channel_controls.py tests/gateway/test_discord_free_response.py tests/gateway/relay/test_relay_threads.py -q"
 echo "Then run the identifier-safe readiness doctor:"
 echo "  python '$PACK_DIR/scripts/discord-pack-doctor.py' --hermes-repo '$TARGET_REPO' --require-smart-approvals"

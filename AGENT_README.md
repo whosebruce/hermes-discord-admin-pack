@@ -27,7 +27,7 @@ The required local config is:
 discord:
   require_mention: true
   auto_thread: true
-  auto_thread_free_response: true
+  free_response_auto_thread: true
   free_response_channels:
     - 'YOUR_TRUSTED_CHANNEL_ID'
 
@@ -52,7 +52,7 @@ while genuinely risky operations remain owner-gated. It does not grant
 Discord permissions and must not be treated as authorization for destructive
 work.
 
-Hermes upstream normally keeps free-response channels inline. This pack's `discord-free-response-auto-thread.patch` adds the explicit `auto_thread_free_response` opt-in. Both the source patch **and** the local config value are required.
+Hermes upstream keeps free-response channels inline by default and now supplies the native `free_response_auto_thread` opt-in. The pack no longer ships a threading source patch. Current Hermes is required; old or mixed threading implementations are rejected by the installer. See README migration notes for old configs and installed patches.
 
 The pack also applies `discord-native-thread-auto-rename.patch`, now a test-only
 patch: current upstream already supports the native adapter's guarded rename
@@ -92,6 +92,7 @@ python -m pip install -e "$HERMES_REPO[dev]"
 bash "$HERMES_REPO/scripts/run_tests.sh" \
   "$HERMES_REPO/tests/tools/test_discord_tool.py" \
   "$HERMES_REPO/tests/gateway/test_discord_channel_controls.py" \
+  "$HERMES_REPO/tests/gateway/test_discord_free_response.py" \
   "$HERMES_REPO/tests/gateway/relay/test_relay_threads.py" -q
 
 python -m pytest -q "$PACK/tests"
@@ -107,8 +108,9 @@ hermes gateway restart
 
 ## Update rule for every agent
 
-This behavior depends on both local config and source support. The config file
-normally survives an update; the source patch may not. Do not claim a blind
+Threading depends on local config and native Hermes support. Admin actions still
+depend on this pack's source patch. The config normally survives an update; the
+admin patch may not. Do not claim a blind
 `hermes update`, raw `git pull`, or replacement checkout is protected.
 
 After installing the guard, use:
@@ -146,7 +148,7 @@ If the source patch is already upstream, `git apply --reverse --check` will iden
 Report only evidence:
 
 - local config path(s) updated (never their secret contents);
-- patch status for all three patch files;
+- patch status for both remaining patch files;
 - focused pytest result;
 - gateway restart result; and
 - real behavior: one top-level message created a new thread, then one reply continued in that same thread.

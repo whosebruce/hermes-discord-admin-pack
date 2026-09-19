@@ -6,7 +6,7 @@ profiles:
     values:
       discord.require_mention: true
       discord.auto_thread: true
-      discord.auto_thread_free_response: true
+      discord.free_response_auto_thread: true
       discord.free_response_channels:
         - 'YOUR_TRUSTED_CHANNEL_ID'
       discord.allowed_channels:

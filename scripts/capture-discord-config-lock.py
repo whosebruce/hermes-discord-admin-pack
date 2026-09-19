@@ -12,7 +12,7 @@ import yaml
 DISCORD_KEYS = (
     "require_mention",
     "auto_thread",
-    "auto_thread_free_response",
+    "free_response_auto_thread",
     "thread_require_mention",
     "free_response_channels",
     "allowed_channels",
@@ -36,7 +36,7 @@ PORTABLE_PATHS = (
 REQUIRED = {
     "require_mention": True,
     "auto_thread": True,
-    "auto_thread_free_response": True,
+    "free_response_auto_thread": True,
 }
 
 
@@ -77,7 +77,9 @@ def capture_profile(home: Path, require_smart: bool) -> tuple[dict[str, Any], in
     config = load_yaml(home / "config.yaml")
     discord_raw = config.get("discord")
     approvals_raw = config.get("approvals")
-    discord = discord_raw if isinstance(discord_raw, dict) else {}
+    discord = dict(discord_raw) if isinstance(discord_raw, dict) else {}
+    if "auto_thread_free_response" in discord:
+        discord.setdefault("free_response_auto_thread", discord.pop("auto_thread_free_response"))
     approvals = approvals_raw if isinstance(approvals_raw, dict) else {}
 
     missing = [key for key, expected in REQUIRED.items() if discord.get(key) is not expected]

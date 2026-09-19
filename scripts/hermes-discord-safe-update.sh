@@ -11,7 +11,6 @@ BACKUP_DIR="$HERMES_HOME_DIR/backups/discord-safe-update-$STAMP"
 [[ -d "$HERMES_REPO/.git" ]] || { echo "error=hermes_repo_missing" >&2; exit 2; }
 for required_patch in \
   hermes-discord-admin.patch \
-  discord-free-response-auto-thread.patch \
   discord-native-thread-auto-rename.patch; do
   [[ -f "$PACK_DIR/patches/$required_patch" ]] \
     || { echo "error=persistent_pack_missing patch=$required_patch" >&2; exit 2; }
@@ -44,10 +43,6 @@ head_has_semantic_patch() {
   local patch_name="$1"
   local text=""
   case "$patch_name" in
-    discord-free-response-auto-thread.patch)
-      text="$(git show HEAD:plugins/platforms/discord/adapter.py 2>/dev/null || true)"
-      [[ "$text" == *"DISCORD_AUTO_THREAD_FREE_RESPONSE"* ]]
-      ;;
     hermes-discord-admin.patch)
       text="$(git show HEAD:tools/discord_tool.py 2>/dev/null || true)"
       [[ "$text" == *"set_channel_permission"* && "$text" == *"move_channel"* ]]
@@ -98,12 +93,14 @@ elif [[ -f venv/bin/activate ]]; then
   source venv/bin/activate
 fi
 python -m pip install -e ".[dev]"
+python "$PACK_DIR/scripts/apply-config-lock.py" --lock "$CONFIG_LOCK"
 hermes config migrate </dev/null
 python "$PACK_DIR/scripts/apply-config-lock.py" --lock "$CONFIG_LOCK"
 
 bash scripts/run_tests.sh \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py \
+  tests/gateway/test_discord_free_response.py \
   tests/gateway/relay/test_relay_threads.py -q
 python "$PACK_DIR/scripts/discord-pack-doctor.py" \
   --hermes-repo "$HERMES_REPO" \

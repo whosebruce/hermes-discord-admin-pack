@@ -2,17 +2,17 @@
 
 [![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
 
-Current tagged release: **1.3.0**. This release uses the verified current-Hermes compatibility repair as its baseline. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+Current tagged release: **1.4.0**. Threading now uses native Hermes support; the obsolete threading source patch has been removed. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
 
 A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
 
 This repo contains **no tokens, API keys, Discord IDs, or private config files**. It ships only:
 
 - a patch against Hermes Agent's `tools/discord_tool.py`
-- an opt-in patch that lets trusted free-response command channels auto-create threads
+- local configuration helpers for native free-response auto-threading
 - a regression-test patch for native Discord thread-title renaming, now supported by upstream
 - focused tests for the Discord changes
-- an install script that preflights and applies all three patches to a local Hermes checkout
+- an install script that preflights and applies both remaining patches to a local Hermes checkout
 - an operator guide and local-config helper for configuring another Hermes agent safely
 - a non-mutating doctor, generic config-lock helper, and daily current-upstream compatibility CI
 - an all-surface privacy scanner that checks the working tree, exact index, and reachable history
@@ -47,23 +47,36 @@ Existing useful actions remain available:
 
 Hermes normally answers free-response channels inline. For a command-center
 workflow where every new top-level request should open a fresh thread, this pack
-adds an explicit opt-in. Put these values in the **local** config for every
+uses the native opt-in. Put these values in the **local** config for every
 gateway/profile that needs the behavior:
 
 ```yaml
 discord:
   require_mention: true
   auto_thread: true
-  auto_thread_free_response: true
+  free_response_auto_thread: true
   free_response_channels:
     - 'YOUR_TRUSTED_CHANNEL_ID'
 ```
 
-The source patch enables the feature; the local config selects it. Both are
-required. Never commit a real `config.yaml` or private channel IDs here.
+Threading requires current Hermes with native `free_response_auto_thread` support.
+No threading source patch is installed. Never commit real configs or private IDs.
+
+### Upgrading from v1.3.0
+
+Rename `discord.auto_thread_free_response` to `discord.free_response_auto_thread`
+in each local config. The configurator writes the native key and removes the old
+one. Config-lock capture translates old-only configs; applying an old lock
+translates its key without changing the lock file. An explicitly captured native
+value wins if both keys exist. Re-capture the lock after migration.
+
+If the old threading source patch is still installed, preserve a source diff and
+config backup before removing only that patch. Do not force it onto native Hermes
+or discard unrelated edits. The installer refuses old or mixed source trees;
+resolve any safe-updater stash conflict before restarting.
 
 Current upstream already handles native Discord semantic renaming correctly.
-The third patch now adds only a regression test that verifies the guarded native
+The rename patch adds only a regression test that verifies the guarded native
 adapter signature; it does not rewrite upstream gateway code.
 
 ## Smart approvals
@@ -132,7 +145,7 @@ else
   git clone https://github.com/whosebruce/hermes-discord-admin-pack.git "$PACK"
 fi
 
-# Apply all three patches
+# Apply both remaining patches
 bash "$PACK/scripts/apply-discord-admin-pack.sh" ~/.hermes/hermes-agent
 
 # Persist command-channel behavior in LOCAL config (repeat --channel as needed)
@@ -153,6 +166,7 @@ python -m pip install -e ".[dev]"
 bash scripts/run_tests.sh \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py \
+  tests/gateway/test_discord_free_response.py \
   tests/gateway/relay/test_relay_threads.py -q
 
 # Run pack-local helper tests and the identifier-safe readiness doctor
@@ -183,10 +197,10 @@ workflow run rather than a stale hard-coded upstream revision or test count.
 
 The installed behavior has two layers:
 
-1. `config.yaml` stores the trusted lane IDs and `auto_thread_free_response`.
-2. The Hermes source checkout contains the code patch that honors that setting.
+1. `config.yaml` stores the trusted lane IDs and `free_response_auto_thread`.
+2. Current Hermes owns native threading; this pack still patches admin actions.
 
-The config normally survives a source update, but the source patch may not.
+The threading config normally survives a source update, but the admin patch may not.
 Therefore a blind `hermes update`, raw `git pull`, or replacement checkout is
 **not** claimed to preserve the complete behavior automatically. Install the
 guard above and use this wrapper instead:
@@ -198,7 +212,7 @@ hermes-discord-safe-update
 
 The wrapper backs up default/profile config and auth files, temporarily removes
 pack-owned source changes before pulling, preserves unrelated local work in a
-stash, updates Hermes, reapplies all three patches, migrates config, reapplies the
+stash, updates Hermes, reapplies both remaining patches, migrates config, reapplies the
 private config lock, reinstalls Hermes, and runs focused tests plus the doctor.
 It deliberately does not restart the gateway after a failed or unreviewed
 update.

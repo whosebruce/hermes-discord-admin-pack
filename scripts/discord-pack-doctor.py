@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ import yaml
 REQUIRED_DISCORD = {
     "require_mention": True,
     "auto_thread": True,
-    "auto_thread_free_response": True,
+    "free_response_auto_thread": True,
 }
 
 
@@ -28,19 +29,6 @@ def run_git(repo: Path, *args: str) -> bool:
 
 def semantic_patch_present(repo: Path, patch: Path) -> bool:
     """Recognize pack behavior even when later local edits prevent reverse-apply."""
-    if patch.name == "discord-free-response-auto-thread.patch":
-        config = repo / "hermes_cli" / "config_defaults.py"
-        if not config.exists():
-            config = repo / "hermes_cli" / "config.py"
-        adapter = repo / "plugins" / "platforms" / "discord" / "adapter.py"
-        if not config.exists() or not adapter.exists():
-            return False
-        config_text = config.read_text(encoding="utf-8", errors="replace")
-        adapter_text = adapter.read_text(encoding="utf-8", errors="replace")
-        return "auto_thread_free_response" in config_text and all(
-            marker in adapter_text
-            for marker in ("auto_thread_free_response", "DISCORD_AUTO_THREAD_FREE_RESPONSE")
-        )
     if patch.name == "hermes-discord-admin.patch":
         tool = repo / "tools" / "discord_tool.py"
         if not tool.exists():
@@ -139,6 +127,10 @@ def main() -> int:
     if not run_git(repo, "rev-parse", "--is-inside-work-tree"):
         print("hermes_repo=missing")
         return 2
+
+    native = subprocess.run([sys.executable, str(pack / "scripts/check-native-threading.py"), str(repo)], check=False)
+    if native.returncode:
+        failed = True
 
     for patch in sorted((pack / "patches").glob("*.patch")):
         state = patch_state(repo, patch)

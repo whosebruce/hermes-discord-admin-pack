@@ -48,7 +48,7 @@ def test_configure_command_lane_sets_smart_approvals_without_logging_identifier(
     config = yaml.safe_load((home / "config.yaml").read_text())
     assert config["discord"]["free_response_channels"] == ["CHANNEL_ALPHA"]
     assert config["discord"]["allowed_channels"] == ["CHANNEL_ALPHA"]
-    assert config["discord"]["auto_thread_free_response"] is True
+    assert config["discord"]["free_response_auto_thread"] is True
     assert config["approvals"]["mode"] == "smart"
     assert config["security"]["redact_secrets"] is True
     assert config["privacy"]["redact_pii"] is True
@@ -92,7 +92,7 @@ def test_capture_config_lock_keeps_values_out_of_stdout(tmp_path: Path):
                 "discord": {
                     "require_mention": True,
                     "auto_thread": True,
-                    "auto_thread_free_response": True,
+                    "free_response_auto_thread": True,
                     "free_response_channels": ["CHANNEL_ALPHA"],
                     "allowed_channels": ["CHANNEL_ALPHA"],
                 },
@@ -133,7 +133,7 @@ def test_install_update_guard_creates_private_lock_and_wrapper(tmp_path: Path):
                 "discord": {
                     "require_mention": True,
                     "auto_thread": True,
-                    "auto_thread_free_response": True,
+                    "free_response_auto_thread": True,
                     "free_response_channels": ["CHANNEL_ALPHA"],
                 },
                 "approvals": {"mode": "smart"},
@@ -176,7 +176,7 @@ def test_doctor_config_inspection_reports_counts_not_identifiers(tmp_path: Path)
                 "discord": {
                     "require_mention": True,
                     "auto_thread": True,
-                    "auto_thread_free_response": True,
+                    "free_response_auto_thread": True,
                     "free_response_channels": ["CHANNEL_ALPHA"],
                 },
                 "approvals": {"mode": "smart"},
@@ -191,19 +191,10 @@ def test_doctor_config_inspection_reports_counts_not_identifiers(tmp_path: Path)
 
 def test_doctor_recognizes_semantically_applied_patches(tmp_path: Path):
     module = load_script("discord-pack-doctor.py")
-    (tmp_path / "hermes_cli").mkdir()
-    (tmp_path / "plugins" / "platforms" / "discord").mkdir(parents=True)
     (tmp_path / "tools").mkdir()
-    (tmp_path / "hermes_cli" / "config_defaults.py").write_text("auto_thread_free_response = False\n")
-    (tmp_path / "plugins" / "platforms" / "discord" / "adapter.py").write_text(
-        "auto_thread_free_response DISCORD_AUTO_THREAD_FREE_RESPONSE\n"
-    )
     (tmp_path / "tools" / "discord_tool.py").write_text(
         "create_channel edit_channel move_channel set_channel_permission "
         "delete_channel_permission delete_channel\n"
-    )
-    assert module.semantic_patch_present(
-        tmp_path, Path("discord-free-response-auto-thread.patch")
     )
     assert module.semantic_patch_present(tmp_path, Path("hermes-discord-admin.patch"))
 

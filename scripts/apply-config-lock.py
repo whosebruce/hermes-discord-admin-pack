@@ -76,8 +76,19 @@ def main() -> int:
         cfg_path = Path(str(home_raw)).expanduser() / "config.yaml"
         cfg = load_yaml(cfg_path)
         before = yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True)
+        values = dict(values)
+        legacy = "discord.auto_thread_free_response"
+        native = "discord.free_response_auto_thread"
+        if legacy in values:
+            # The explicitly captured native setting wins if a lock contains both.
+            values.setdefault(native, values.pop(legacy))
         for dotted, value in values.items():
             set_dotted(cfg, str(dotted), value)
+        discord = cfg.get("discord")
+        if isinstance(discord, dict) and "auto_thread_free_response" in discord:
+            if native not in values:
+                discord.setdefault("free_response_auto_thread", discord["auto_thread_free_response"])
+            discord.pop("auto_thread_free_response")
         after = yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True)
         if before != after:
             changed += 1
