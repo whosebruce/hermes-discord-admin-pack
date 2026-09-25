@@ -34,9 +34,17 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          python -m pip install --upgrade pip
           python -m venv hermes-agent/.venv
-          hermes-agent/.venv/bin/python -m pip install -e "./hermes-agent[dev]"
+          venv_python=hermes-agent/.venv/bin/python
+          # pip 25.1+ reads PEP 735 dependency groups; the venv ships an older pip.
+          "$venv_python" -m pip install --upgrade pip
+          # Hermes moved its test tools from the [dev] extra to a [dependency-groups]
+          # table in September 2026. Support both layouts.
+          if grep -q '^\[dependency-groups\]' hermes-agent/pyproject.toml; then
+            "$venv_python" -m pip install -e ./hermes-agent --group ./hermes-agent/pyproject.toml:dev
+          else
+            "$venv_python" -m pip install -e "./hermes-agent[dev]"
+          fi
           echo "$GITHUB_WORKSPACE/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Test pack helper scripts
