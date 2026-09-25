@@ -29,7 +29,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          # Current Hermes pins every runtime dependency to Python >= 3.14.
+          python-version: "3.14"
           cache: pip
 
       - name: Install test dependencies
@@ -41,11 +42,18 @@ jobs:
           # Hermes moved its test tools from the [dev] extra to a [dependency-groups]
           # table in September 2026. Support both layouts.
           if grep -q '^\[dependency-groups\]' hermes-agent/pyproject.toml; then
-            "$venv_python" -m pip install -e ./hermes-agent --group ./hermes-agent/pyproject.toml:dev
+            "$venv_python" -m pip install -e ./hermes-agent \
+              --group ./hermes-agent/pyproject.toml:dev \
+              --group ./hermes-agent/pyproject.toml:test
           else
             "$venv_python" -m pip install -e "./hermes-agent[dev]"
           fi
+          # The pack's own helper scripts read YAML with PyYAML. Hermes switched
+          # to ruamel.yaml and no longer installs PyYAML, so install it here.
+          "$venv_python" -m pip install pyyaml
           echo "$GITHUB_WORKSPACE/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
+          # Point Hermes's test runner at this venv instead of its own activation.
+          echo "HERMES_PYTHON=$GITHUB_WORKSPACE/hermes-agent/.venv/bin/python" >> "$GITHUB_ENV"
 
       - name: Test pack helper scripts
         run: |
