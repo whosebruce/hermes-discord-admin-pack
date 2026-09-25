@@ -125,7 +125,9 @@ For a trusted private command-center bot, `Administrator` is simpler but less sa
 
 ## Install on another Hermes agent
 
-On the target machine:
+On the target machine. The pack's helper scripts read YAML with PyYAML. Hermes releases from
+September 2026 onward use ruamel.yaml instead and no longer install PyYAML, so on a current
+Hermes run `python -m pip install pyyaml` inside the Hermes venv first.
 
 ```bash
 cd ~/.hermes/hermes-agent
