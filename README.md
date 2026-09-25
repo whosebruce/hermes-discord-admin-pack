@@ -2,17 +2,16 @@
 
 [![Compatibility and privacy](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml/badge.svg)](https://github.com/whosebruce/hermes-discord-admin-pack/actions/workflows/compatibility.yml)
 
-Current tagged release: **1.4.0**. Threading now uses native Hermes support; the obsolete threading source patch has been removed. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
+A sanitized patch and setup pack that adds Discord server-management actions to Hermes Agent, with a safe-update wrapper that reapplies them after Hermes updates.
 
-A sanitized helper pack for enabling richer Discord server-management actions on Hermes Agent instances.
+Current release: **1.4.0**. Command-channel threading now uses native Hermes support, and the old threading source patch has been removed. See [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), and the [MIT license](LICENSE).
 
 This repo contains **no tokens, API keys, Discord IDs, or private config files**. It ships only:
 
-- a patch against Hermes Agent's `tools/discord_tool.py`
+- a patch against Hermes Agent's `tools/discord_tool.py` and its tests
 - local configuration helpers for native free-response auto-threading
 - a regression-test patch for native Discord thread-title renaming, now supported by upstream
-- focused tests for the Discord changes
-- an install script that preflights and applies both remaining patches to a local Hermes checkout
+- an install script that confirms native threading support, then preflights and applies both patches to a local Hermes checkout
 - an operator guide and local-config helper for configuring another Hermes agent safely
 - a non-mutating doctor, generic config-lock helper, and daily current-upstream compatibility CI
 - an all-surface privacy scanner that checks the working tree, exact index, and reachable history
@@ -25,12 +24,12 @@ This repo contains **no tokens, API keys, Discord IDs, or private config files**
 
 Native `discord_admin` actions for Hermes:
 
-- `create_channel` — create text, voice, category, announcement/news, forum, stage, or media channels
-- `edit_channel` — rename/edit topic/category/slowmode/voice limits/common channel fields
-- `move_channel` — reorder/move channels, optionally into a category
-- `set_channel_permission` — create/update role/member channel permission overwrites
-- `delete_channel_permission` — remove a channel permission overwrite
-- `delete_channel` — delete a channel or thread
+- `create_channel`: create text, voice, category, announcement/news, forum, stage, or media channels
+- `edit_channel`: rename/edit topic/category/slowmode/voice limits/common channel fields
+- `move_channel`: reorder/move channels, optionally into a category
+- `set_channel_permission`: create/update role/member channel permission overwrites
+- `delete_channel_permission`: remove a channel permission overwrite
+- `delete_channel`: delete a channel or thread
 
 Existing useful actions remain available:
 
@@ -160,9 +159,12 @@ python "$PACK/scripts/configure-discord-threading.py" \
 # the safe-update wrapper. Add more NAME=HERMES_HOME arguments for profiles.
 bash "$PACK/scripts/install-update-guard.sh" "default=$HOME/.hermes"
 
-# Run focused tests (install their dependencies in the active environment)
-source venv/bin/activate
-python -m pip install -e ".[dev]"
+# Run focused tests. Current Hermes keeps its test tools in a
+# [dependency-groups] dev table, which needs pip 25.1 or newer.
+source venv/bin/activate   # or .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e . --group dev
+# Older Hermes checkouts without that table: python -m pip install -e ".[dev]"
 bash scripts/run_tests.sh \
   tests/tools/test_discord_tool.py \
   tests/gateway/test_discord_channel_controls.py \
@@ -268,7 +270,7 @@ Create a text channel:
 {
   "action": "create_channel",
   "guild_id": "DISCORD_GUILD_ID",
-  "name": "🧪-experiments-2",
+  "name": "experiments-2",
   "channel_type": "text",
   "parent_id": "OPTIONAL_CATEGORY_ID",
   "topic": "Testing area"
@@ -308,7 +310,7 @@ Rename/edit a channel:
 {
   "action": "edit_channel",
   "channel_id": "CHANNEL_ID",
-  "name": "📚-resources",
+  "name": "resources",
   "topic": "Curated links and documents"
 }
 ```
@@ -368,6 +370,8 @@ The scanner reports where a finding occurred without printing the matched
 private value. After pushing, fresh-clone the public HTTPS repository and run
 the tests and scanner again.
 
-## Notes
+## Status
 
 This is a bridge pack for Hermes operators. Long term, the better home for these actions is an upstream Hermes Agent PR or a maintained fork/branch.
+
+MIT licensed. Maintained by Jonathan Bruce ([@whosebruce](https://github.com/whosebruce)).
