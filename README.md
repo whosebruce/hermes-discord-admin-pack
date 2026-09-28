@@ -372,6 +372,17 @@ The scanner reports where a finding occurred without printing the matched
 private value. After pushing, fresh-clone the public HTTPS repository and run
 the tests and scanner again.
 
+## Optional extras
+
+These are standalone Hermes fixes that aren't about Discord. The installer and
+safe updater never apply them; each one has its own README with apply and
+revert steps.
+
+- [`extras/camofox-vault-fill/`](extras/camofox-vault-fill/README.md): makes
+  Hermes Vault autofill (`browser_vault_fill`) work on the Camofox browser
+  backend. Without it, fills fail with `origin_mismatch` on
+  `chrome://new-tab-page`.
+
 ## Status
 
 This is a bridge pack for Hermes operators. Long term, the better home for these actions is an upstream Hermes Agent PR or a maintained fork/branch.
