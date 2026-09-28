@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add optional `extras/camofox-vault-fill/`, a Hermes patch that makes vault autofill work on the Camofox browser backend. The installer and safe updater do not apply it.
+
 ## 1.4.0
 
 - Remove the obsolete free-response threading patch now that Hermes implements it natively.
