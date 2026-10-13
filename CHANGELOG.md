@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Refresh the admin-action patch for current Hermes `main` (2026-10-13): upstream's linter and
+  import-path cleanups moved its context, so the daily check had failed since 2026-10-08. The
+  added and removed lines are unchanged.
+- Keep the previous patch as `patches/compat/hermes-discord-admin.v2026.9.24.patch` for the
+  current release (v2026.9.24). The installer and safe updater pick the first variant that fits.
+- Compatibility CI now tests the newest Hermes release tag (required) and `main` (early warning,
+  non-blocking) instead of `main` alone.
+- Installer: fix "unbound variable" on macOS bash 3.2 when every patch is already applied.
 - Add optional `extras/camofox-vault-fill/`, a Hermes patch that makes vault autofill work on the Camofox browser backend. The installer and safe updater do not apply it.
 
 ## 1.4.0

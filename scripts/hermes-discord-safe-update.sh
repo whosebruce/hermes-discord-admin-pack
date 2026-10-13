@@ -55,12 +55,15 @@ head_has_semantic_patch() {
   esac
 }
 
-for patch in "$PACK_DIR"/patches/*.patch; do
+for patch in "$PACK_DIR"/patches/*.patch "$PACK_DIR"/patches/compat/*.patch; do
+  [[ -f "$patch" ]] || continue
+  # compat/<name>.<hermes-release>.patch is a variant of <name>.patch
   patch_name="$(basename "$patch")"
+  [[ "$patch" == */compat/* ]] && patch_name="${patch_name%%.v[0-9]*}.patch"
   if ! head_has_semantic_patch "$patch_name" \
     && git apply --reverse --check "$patch" >/dev/null 2>&1; then
     git apply --reverse "$patch"
-    echo "temporarily_removed_patch=$patch_name"
+    echo "temporarily_removed_patch=$(basename "$patch")"
   fi
 done
 

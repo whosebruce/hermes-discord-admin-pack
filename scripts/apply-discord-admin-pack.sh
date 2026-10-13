@@ -29,16 +29,39 @@ git status -sb
 
 python "$PACK_DIR/scripts/check-native-threading.py" "$TARGET_REPO"
 
+# Each patch may have older variants in patches/compat/<name>.<hermes-release>.patch for
+# Hermes releases that predate the current patch. The current patch is tried first.
+patch_candidates() {
+  local patch_file="$1" stem
+  stem="$(basename "$patch_file" .patch)"
+  printf '%s\n' "$patch_file"
+  for variant in "$PACK_DIR/patches/compat/$stem".*.patch; do
+    [[ -f "$variant" ]] && printf '%s\n' "$variant"
+  done
+  return 0
+}
+
 declare -a pending=()
 echo
 echo "Preflighting patches..."
 for patch_file in "${PATCH_FILES[@]}"; do
   patch_name="$(basename "$patch_file")"
-  if git apply --check "$patch_file" 2>/dev/null; then
-    echo "  pending: $patch_name"
-    pending+=("$patch_file")
-  elif git apply --reverse --check "$patch_file" 2>/dev/null; then
-    echo "  already applied: $patch_name"
+  chosen=""
+  applied=""
+  while IFS= read -r candidate; do
+    if git apply --reverse --check "$candidate" 2>/dev/null; then
+      applied="$candidate"
+      break
+    fi
+    if [[ -z "$chosen" ]] && git apply --check "$candidate" 2>/dev/null; then
+      chosen="$candidate"
+    fi
+  done < <(patch_candidates "$patch_file")
+  if [[ -n "$applied" ]]; then
+    echo "  already applied: $patch_name ($(basename "$applied"))"
+  elif [[ -n "$chosen" ]]; then
+    echo "  pending: $patch_name ($(basename "$chosen"))"
+    pending+=("$chosen")
   else
     echo "  incompatible: $patch_name" >&2
     echo "No patches were applied. Update the patch for this Hermes revision; do not force it." >&2
@@ -46,7 +69,8 @@ for patch_file in "${PATCH_FILES[@]}"; do
   fi
 done
 
-for patch_file in "${pending[@]}"; do
+# ${arr[@]+...}: macOS bash 3.2 treats an empty array as unset under set -u.
+for patch_file in ${pending[@]+"${pending[@]}"}; do
   echo "Applying $(basename "$patch_file")..."
   git apply "$patch_file"
 done

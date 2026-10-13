@@ -12,25 +12,72 @@ permissions:
 
 jobs:
   test-current-hermes:
+    # stable = the newest Hermes release tag, which is what installs run; it must pass.
+    # main = upstream's unreleased branch, an early warning that the patch needs a refresh
+    # before the next release. It never fails the run (no daily red emails for drift).
+    name: test-hermes-${{ matrix.hermes }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.hermes == 'main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        hermes: [stable, main]
     steps:
       - name: Check out this pack with history
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Check out current Hermes Agent
+      - name: Pick the Hermes revision
+        id: hermes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ matrix.hermes }}" = stable ]; then
+            # The release GitHub marks Latest. Tags switched from vYYYY.M.D to vX.Y.Z at 0.21.6,
+            # so sorting tags alone picks an old release.
+            ref=$(gh release view --repo NousResearch/hermes-agent --json tagName --jq .tagName)
+            [ -n "$ref" ] || { echo "No Hermes release found" >&2; exit 1; }
+          else
+            ref=main
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Testing against Hermes $ref" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out Hermes Agent (${{ steps.hermes.outputs.ref }})
         uses: actions/checkout@v7
         with:
           repository: NousResearch/hermes-agent
+          ref: ${{ steps.hermes.outputs.ref }}
           path: hermes-agent
           fetch-depth: 1
+
+      - name: Pick the Python this Hermes revision supports
+        id: python
+        # Releases and main differ (v2026.9.24: <3.14; main: <3.15), so read requires-python
+        # and take the newest version it allows.
+        run: |
+          req=$(grep -m1 -E '^requires-python' hermes-agent/pyproject.toml | cut -d'"' -f2)
+          version=$(python3 - "$req" <<'EOF'
+          import operator, sys
+          ops = {">=": operator.ge, "<=": operator.le, ">": operator.gt, "<": operator.lt, "==": operator.eq}
+          def allowed(v):
+              for part in filter(None, (p.strip() for p in sys.argv[1].split(","))):
+                  op = next((o for o in (">=", "<=", "==", ">", "<") if part.startswith(o)), None)
+                  bound = tuple(int(x) for x in part[len(op or ""):].strip().split(".")[:2])
+                  if op and not ops[op](v, bound):
+                      return False
+              return True
+          print(next(f"{a}.{b}" for a, b in ((3, 14), (3, 13), (3, 12), (3, 11)) if allowed((a, b))))
+          EOF
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Hermes requires-python '$req' → Python $version" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          # Current Hermes pins every runtime dependency to Python >= 3.14.
-          python-version: "3.14"
+          python-version: ${{ steps.python.outputs.version }}
           cache: pip
 
       - name: Install test dependencies

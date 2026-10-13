@@ -65,6 +65,50 @@ def test_installer_refuses_missing_native_or_retired_patch(installation, legacy)
     assert all((repo / f"feature-{i}").read_text() == "old\n" for i in range(len(PATCH_NAMES)))
 
 
+def add_compat_variant(pack, repo):
+    """An older Hermes release: the current admin patch no longer fits, a compat variant does."""
+    (repo / "feature-0").write_text("older\n")
+    (pack / "patches/compat").mkdir(exist_ok=True)
+    (pack / "patches/compat/hermes-discord-admin.v2026.9.24.patch").write_text(
+        "diff --git a/feature-0 b/feature-0\n--- a/feature-0\n+++ b/feature-0\n"
+        "@@ -1 +1 @@\n-older\n+newer\n"
+    )
+
+
+def test_installer_falls_back_to_compat_variant_once(installation):
+    pack, repo = installation
+    add_compat_variant(pack, repo)
+    first = install(pack, repo)
+    assert first.returncode == 0, first.stderr
+    assert "pending: hermes-discord-admin.patch (hermes-discord-admin.v2026.9.24.patch)" in first.stdout
+    assert (repo / "feature-0").read_text() == "newer\n"
+    assert (repo / "feature-1").read_text() == "new\n"
+    second = install(pack, repo)
+    assert second.returncode == 0, second.stderr
+    assert "already applied: hermes-discord-admin.patch (hermes-discord-admin.v2026.9.24.patch)" in second.stdout
+    assert second.stdout.count("already applied:") == len(PATCH_NAMES)
+
+
+def test_installer_prefers_current_patch_over_compat_variant(installation):
+    pack, repo = installation
+    add_compat_variant(pack, repo)
+    (repo / "feature-0").write_text("old\n")  # current Hermes: the main patch fits
+    result = install(pack, repo)
+    assert result.returncode == 0, result.stderr
+    assert "pending: hermes-discord-admin.patch (hermes-discord-admin.patch)" in result.stdout
+    assert (repo / "feature-0").read_text() == "new\n"
+
+
+def test_no_fitting_variant_applies_nothing(installation):
+    pack, repo = installation
+    add_compat_variant(pack, repo)
+    (repo / "feature-0").write_text("unrelated\n")
+    result = install(pack, repo)
+    assert result.returncode != 0
+    assert "No patches were applied" in result.stderr
+    assert (repo / "feature-1").read_text() == "old\n"
+
+
 def test_late_incompatible_patch_does_not_partially_apply(installation):
     pack, repo = installation
     (repo / "feature-1").write_text("incompatible\n")
