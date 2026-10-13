@@ -30,11 +30,14 @@ jobs:
 
       - name: Pick the Hermes revision
         id: hermes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ matrix.hermes }}" = stable ]; then
-            ref=$(git ls-remote --tags --refs https://github.com/NousResearch/hermes-agent.git 'v20*' \
-              | awk -F/ '{print $NF}' | grep -E '^v[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$' | sort -V | tail -1)
-            [ -n "$ref" ] || { echo "No Hermes release tag found" >&2; exit 1; }
+            # The release GitHub marks Latest. Tags switched from vYYYY.M.D to vX.Y.Z at 0.21.6,
+            # so sorting tags alone picks an old release.
+            ref=$(gh release view --repo NousResearch/hermes-agent --json tagName --jq .tagName)
+            [ -n "$ref" ] || { echo "No Hermes release found" >&2; exit 1; }
           else
             ref=main
           fi
