@@ -49,11 +49,32 @@ jobs:
           path: hermes-agent
           fetch-depth: 1
 
+      - name: Pick the Python this Hermes revision supports
+        id: python
+        # Releases and main differ (v2026.9.24: <3.14; main: <3.15), so read requires-python
+        # and take the newest version it allows.
+        run: |
+          req=$(grep -m1 -E '^requires-python' hermes-agent/pyproject.toml | cut -d'"' -f2)
+          version=$(python3 - "$req" <<'EOF'
+          import operator, sys
+          ops = {">=": operator.ge, "<=": operator.le, ">": operator.gt, "<": operator.lt, "==": operator.eq}
+          def allowed(v):
+              for part in filter(None, (p.strip() for p in sys.argv[1].split(","))):
+                  op = next((o for o in (">=", "<=", "==", ">", "<") if part.startswith(o)), None)
+                  bound = tuple(int(x) for x in part[len(op or ""):].strip().split(".")[:2])
+                  if op and not ops[op](v, bound):
+                      return False
+              return True
+          print(next(f"{a}.{b}" for a, b in ((3, 14), (3, 13), (3, 12), (3, 11)) if allowed((a, b))))
+          EOF
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Hermes requires-python '$req' → Python $version" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          # Current Hermes pins every runtime dependency to Python >= 3.14.
-          python-version: "3.14"
+          python-version: ${{ steps.python.outputs.version }}
           cache: pip
 
       - name: Install test dependencies
