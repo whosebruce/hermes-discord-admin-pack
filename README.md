@@ -193,9 +193,17 @@ systemctl --user restart hermes-gateway.service
 Test counts change as Hermes evolves; require a zero exit code rather than a
 hard-coded pass count.
 
-The repository's scheduled GitHub Actions workflow repeats this process
-against current Hermes Agent `main`. Compatibility evidence is tied to each
+The repository's scheduled GitHub Actions workflow repeats this process twice:
+against the newest Hermes Agent release tag (must pass; this is what installs run)
+and against upstream `main` (an early warning that the patch needs a refresh before
+the next release; it never fails the run). Compatibility evidence is tied to each
 workflow run rather than a stale hard-coded upstream revision or test count.
+
+When upstream moves on, `patches/hermes-discord-admin.patch` is refreshed for the
+newest Hermes and the previous version is kept as
+`patches/compat/hermes-discord-admin.<hermes-release>.patch`. The installer tries the
+current patch first, then the compat variants, and applies the first one that fits,
+so a pack checkout works on both the current release and the next one.
 
 ## Surviving Hermes updates
 

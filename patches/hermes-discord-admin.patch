@@ -1,8 +1,8 @@
 diff --git a/tests/tools/test_discord_tool.py b/tests/tools/test_discord_tool.py
-index 8de8338..925d05a 100644
+index b2755ad799..c5dee4b34d 100644
 --- a/tests/tools/test_discord_tool.py
 +++ b/tests/tools/test_discord_tool.py
-@@ -178,6 +178,12 @@ class TestDiscordServerValidation:
+@@ -168,6 +168,12 @@ class TestDiscordServerValidation:
          assert "error" in result
          assert "DISCORD_BOT_TOKEN" in result["error"]
  
@@ -15,7 +15,7 @@ index 8de8338..925d05a 100644
  
      def test_missing_multiple_params(self, monkeypatch):
          monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
-@@ -275,6 +281,113 @@ class TestFetchMessages:
+@@ -265,6 +271,113 @@ class TestFetchMessages:
          assert result["messages"][0]["author"]["username"] == "user1"
  
  
@@ -130,7 +130,7 @@ index 8de8338..925d05a 100644
  # Action: create_thread
  # ---------------------------------------------------------------------------
 diff --git a/tools/discord_tool.py b/tools/discord_tool.py
-index c5fd69a..8bb8dda 100644
+index 70d7d59d38..7a96559aa1 100644
 --- a/tools/discord_tool.py
 +++ b/tools/discord_tool.py
 @@ -86,10 +86,72 @@ _CHANNEL_TYPE_NAMES = {
@@ -205,7 +205,7 @@ index c5fd69a..8bb8dda 100644
 +
  # ── capability detection (application intents) ──────────────────────────────
  # Per-token in-process cache: the app/me endpoint is hit at most once per process.
- _capability_cache: Dict[str, Dict[str, Any]] = {}
+ _capability_cache: dict[str, dict[str, Any]] = {}
 @@ -355,6 +417,105 @@ def _list_pins(token: str, channel_id: str, **_kwargs: Any) -> str:
          for msg in messages])
  
@@ -325,7 +325,7 @@ index c5fd69a..8bb8dda 100644
      ("create_thread", _create_thread, "(channel_id, name)", "create a public thread; optional message_id anchor"),
      ("add_role", _add_role, "(guild_id, user_id, role_id)", "assign a role"),
      ("remove_role", _remove_role, "(guild_id, user_id, role_id)", "remove a role"),
-@@ -479,7 +646,60 @@ _SCHEMA_PROPERTIES: Dict[str, Any] = {
+@@ -479,7 +646,60 @@ _SCHEMA_PROPERTIES: dict[str, Any] = {
      "role_id": {"type": "string", "description": "Discord role ID."},
      "message_id": {"type": "string", "description": "Discord message ID."},
      "query": {"type": "string", "description": "Member name prefix to search for (search_members)."},
@@ -424,7 +424,7 @@ index c5fd69a..8bb8dda 100644
      "guild_id": "", "channel_id": "", "user_id": "", "role_id": "", "message_id": "", "query": "",
      "name": "", "limit": 50, "before": "", "after": "", "auto_archive_duration": 1440}
  
-@@ -600,7 +843,7 @@ def _run_discord_action(action: str, valid_actions: Dict[str, Any], tool_label:
+@@ -600,7 +843,7 @@ def _run_discord_action(action: str, valid_actions: dict[str, Any], tool_label:
              f"Action '{action}' is disabled by config (discord.server_actions). "
              f"Allowed: {', '.join(allowlist) if allowlist else '<none>'}")
      kwargs = {k: params.get(k, v) for k, v in _HANDLER_DEFAULTS.items()}

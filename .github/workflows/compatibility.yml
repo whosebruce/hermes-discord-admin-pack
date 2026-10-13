@@ -12,17 +12,40 @@ permissions:
 
 jobs:
   test-current-hermes:
+    # stable = the newest Hermes release tag, which is what installs run; it must pass.
+    # main = upstream's unreleased branch, an early warning that the patch needs a refresh
+    # before the next release. It never fails the run (no daily red emails for drift).
+    name: test-hermes-${{ matrix.hermes }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.hermes == 'main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        hermes: [stable, main]
     steps:
       - name: Check out this pack with history
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Check out current Hermes Agent
+      - name: Pick the Hermes revision
+        id: hermes
+        run: |
+          if [ "${{ matrix.hermes }}" = stable ]; then
+            ref=$(git ls-remote --tags --refs https://github.com/NousResearch/hermes-agent.git 'v20*' \
+              | awk -F/ '{print $NF}' | grep -E '^v[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$' | sort -V | tail -1)
+            [ -n "$ref" ] || { echo "No Hermes release tag found" >&2; exit 1; }
+          else
+            ref=main
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Testing against Hermes $ref" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out Hermes Agent (${{ steps.hermes.outputs.ref }})
         uses: actions/checkout@v7
         with:
           repository: NousResearch/hermes-agent
+          ref: ${{ steps.hermes.outputs.ref }}
           path: hermes-agent
           fetch-depth: 1
 
