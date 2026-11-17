@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Compatibility CI: install Hermes from its own `uv.lock` with `uv sync --frozen` when the revision
+  ships one, instead of `pip install -e`. Since late October Hermes settles a Pillow pin conflict
+  (Pillow 13 vs browser-harness's `pillow==12.3.0`) with a uv-only override that pip can't read, so
+  both jobs failed at "Install test dependencies" from 2026-10-28 and never reached the tests.
+  Revisions without a lockfile keep the pip path. Checked against v0.23.2: both patches apply and
+  the four upstream Discord test files pass.
 - Refresh the admin-action patch for current Hermes `main` (2026-10-13): upstream's linter and
   import-path cleanups moved its context, so the daily check had failed since 2026-10-08. The
   added and removed lines are unchanged.
