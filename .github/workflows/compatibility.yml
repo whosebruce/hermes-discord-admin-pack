@@ -80,24 +80,43 @@ jobs:
           python-version: ${{ steps.python.outputs.version }}
           cache: pip
 
+      - name: Install uv
+        # Hermes settles some pins with uv-only overrides ([tool.uv] override-dependencies:
+        # since late October, Pillow 13 over browser-harness's pillow==12.3.0). pip can't read
+        # those and gives up, so a Hermes revision that ships uv.lock installs from it with uv.
+        # Pinned: unpinned, setup-uv fetches a manifest on every run.
+        if: hashFiles('hermes-agent/uv.lock') != ''
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # 8.2.0
+        with:
+          version: "0.13.5"
+
       - name: Install test dependencies
         run: |
-          python -m venv hermes-agent/.venv
           venv_python=hermes-agent/.venv/bin/python
-          # pip 25.1+ reads PEP 735 dependency groups; the venv ships an older pip.
-          "$venv_python" -m pip install --upgrade pip
-          # Hermes moved its test tools from the [dev] extra to a [dependency-groups]
-          # table in September 2026. Support both layouts.
-          if grep -q '^\[dependency-groups\]' hermes-agent/pyproject.toml; then
-            "$venv_python" -m pip install -e ./hermes-agent \
-              --group ./hermes-agent/pyproject.toml:dev \
-              --group ./hermes-agent/pyproject.toml:test
+          has_group() { grep -qE "^$1 = \[" hermes-agent/pyproject.toml; }
+          if [ -f hermes-agent/uv.lock ]; then
+            # Hermes's own lockfile, the way its installer and CI install it (overrides included).
+            groups=(--group dev)
+            if has_group test; then groups+=(--group test); fi
+            (cd hermes-agent && uv sync --frozen --python "$(command -v python)" "${groups[@]}")
+            uv pip install --python "$venv_python" pyyaml
           else
-            "$venv_python" -m pip install -e "./hermes-agent[dev]"
+            python -m venv hermes-agent/.venv
+            # pip 25.1+ reads PEP 735 dependency groups; the venv ships an older pip.
+            "$venv_python" -m pip install --upgrade pip
+            # Hermes moved its test tools from the [dev] extra to a [dependency-groups]
+            # table in September 2026. Support both layouts.
+            if grep -q '^\[dependency-groups\]' hermes-agent/pyproject.toml; then
+              "$venv_python" -m pip install -e ./hermes-agent \
+                --group ./hermes-agent/pyproject.toml:dev \
+                --group ./hermes-agent/pyproject.toml:test
+            else
+              "$venv_python" -m pip install -e "./hermes-agent[dev]"
+            fi
+            # The pack's own helper scripts read YAML with PyYAML. Hermes switched
+            # to ruamel.yaml and no longer installs PyYAML, so install it here.
+            "$venv_python" -m pip install pyyaml
           fi
-          # The pack's own helper scripts read YAML with PyYAML. Hermes switched
-          # to ruamel.yaml and no longer installs PyYAML, so install it here.
-          "$venv_python" -m pip install pyyaml
           echo "$GITHUB_WORKSPACE/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
           # Point Hermes's test runner at this venv instead of its own activation.
           echo "HERMES_PYTHON=$GITHUB_WORKSPACE/hermes-agent/.venv/bin/python" >> "$GITHUB_ENV"
